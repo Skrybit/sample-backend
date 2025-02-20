@@ -1,0 +1,12 @@
+{
+  "dependencies": {
+    "@scure/btc-signer": "^1.6.0",
+    "better-sqlite3": "^11.8.1",
+    "express": "^4.21.2",
+    "micro-ordinals": "^0.2.0",
+    "multer": "^1.4.5-lts.1",
+    "mutter": "^1.0.1",
+    "mysql": "^2.18.1",
+    "mysql2": "^3.12.0"
+  }
+}

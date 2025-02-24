@@ -58,7 +58,7 @@ const updateInscription = db.prepare(`
 app.post('/create-commit', upload.single('file'), (req, res) => {
     try {
         const { recipientAddress, feeRate } = req.body;
-        
+
         if (!req.file || !recipientAddress || !feeRate) {
             return res.status(400).json({ error: 'Missing required parameters' });
         }
@@ -76,7 +76,7 @@ app.post('/create-commit', upload.single('file'), (req, res) => {
             inscription.requiredAmount,
             inscription.fileSize,
             recipientAddress,
-            feeRate
+            feeRate,
         );
 
         // Clean up uploaded file
@@ -87,9 +87,8 @@ app.post('/create-commit', upload.single('file'), (req, res) => {
             fileSize: inscription.fileSize,
             address: inscription.address,
             requiredAmount: inscription.requiredAmount,
-            tempPrivateKey: inscription.tempPrivateKey
+            tempPrivateKey: inscription.tempPrivateKey,
         });
-
     } catch (error) {
         console.error('Error creating commit:', error);
         // Clean up uploaded file if it exists
@@ -124,23 +123,14 @@ app.post('/create-reveal', upload.single('file'), (req, res) => {
             fileBuffer,
             inscriptionData.fee_rate,
             inscriptionData.recipient_address,
-            inscriptionData.temp_private_key
+            inscriptionData.temp_private_key,
         );
 
         // Create reveal transaction
-        const revealTx = inscription.createRevealTx(
-            commitTxId,
-            parseInt(vout),
-            parseInt(amount)
-        );
+        const revealTx = inscription.createRevealTx(commitTxId, parseInt(vout), parseInt(amount));
 
         // Update database with commit tx id and reveal tx hex
-        updateInscription.run(
-            commitTxId,
-            revealTx,
-            'reveal_ready',
-            inscriptionId
-        );
+        updateInscription.run(commitTxId, revealTx, 'reveal_ready', inscriptionId);
 
         // Clean up uploaded file
         fs.unlinkSync(req.file.path);
@@ -151,10 +141,9 @@ app.post('/create-reveal', upload.single('file'), (req, res) => {
                 generatedAddress: inscription.address,
                 pubkey: hex.encode(secp256k1.getPublicKey(hex.decode(inscription.tempPrivateKey), true)),
                 amount: parseInt(amount),
-                fees: parseInt(amount) - 546
-            }
+                fees: parseInt(amount) - 546,
+            },
         });
-
     } catch (error) {
         console.error('Error creating reveal:', error);
         // Clean up uploaded file if it exists
@@ -180,7 +169,7 @@ app.get('/inscription/:id', (req, res) => {
             required_amount: row.required_amount,
             status: row.status,
             commit_tx_id: row.commit_tx_id,
-            created_at: row.created_at
+            created_at: row.created_at,
         });
     } catch (error) {
         console.error('Error fetching inscription:', error);
@@ -189,7 +178,8 @@ app.get('/inscription/:id', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3001;
-const server = app.listen(PORT)
+const server = app
+    .listen(PORT)
     .on('error', (err) => {
         if (err.code === 'EADDRINUSE') {
             console.error(`Port ${PORT} is already in use. Please try a different port.`);

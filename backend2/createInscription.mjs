@@ -8,16 +8,16 @@ function detectContentType(buffer) {
     // Common file signatures and their corresponding MIME types
     const signatures = {
         // Images
-        'ffd8ff': 'image/jpeg',
+        ffd8ff: 'image/jpeg',
         '89504e47': 'image/png',
-        '47494638': 'image/gif',
+        47494638: 'image/gif',
         // Documents
-        '25504446': 'application/pdf',
+        25504446: 'application/pdf',
         // Audio
-        '494433': 'audio/mpeg',
-        'fff3': 'audio/mpeg',
-        'fff2': 'audio/mpeg',
-        '4944': 'audio/mpeg',
+        494433: 'audio/mpeg',
+        fff3: 'audio/mpeg',
+        fff2: 'audio/mpeg',
+        4944: 'audio/mpeg',
         // Video
         '000001': 'video/mpeg',
         // SVG (usually starts with '<?xml' or '<svg')
@@ -55,18 +55,18 @@ function detectContentType(buffer) {
 
 export function createInscription(fileContent, feeRate, recipientAddress, existingPrivKey = null) {
     const DUST_LIMIT = 546n; // Bitcoin's standard dust limit
-    
+
     // Use the provided private key or generate a new one
     const privKey = existingPrivKey
         ? hex.decode(existingPrivKey) // Convert hex string back to Uint8Array
         : secp256k1.utils.randomPrivateKey();
-    
-    console.log("privkey: " + hex.encode(privKey));
+
+    console.log('privkey: ' + hex.encode(privKey));
     const pubKey = btc.utils.pubSchnorr(privKey);
 
     // Auto-detect content type from file content
     const contentType = detectContentType(fileContent);
-    console.log("Detected content type:", contentType);
+    console.log('Detected content type:', contentType);
 
     // Create inscription
     const inscription = {
@@ -84,7 +84,7 @@ export function createInscription(fileContent, feeRate, recipientAddress, existi
         ordinals.p2tr_ord_reveal(pubKey, [inscription]),
         btc.NETWORK,
         false,
-        customScripts
+        customScripts,
     );
 
     // Calculate required data sizes for fee estimation
@@ -92,7 +92,7 @@ export function createInscription(fileContent, feeRate, recipientAddress, existi
     const totalSize = witnessSize + 200; // Add padding for transaction overhead
 
     // Calculate fees with decimal fee rate support
-    const feeInSats = Math.ceil(totalSize * feeRate / 4);
+    const feeInSats = Math.ceil((totalSize * feeRate) / 4);
     const fee = BigInt(feeInSats);
 
     // Create reveal transaction function
@@ -100,25 +100,23 @@ export function createInscription(fileContent, feeRate, recipientAddress, existi
         const tx = new btc.Transaction({ customScripts });
         const inputAmount = BigInt(amount);
         const outputAmount = inputAmount - fee;
-        
+
         // Check if output would be dust
         if (outputAmount < DUST_LIMIT) {
-            throw new Error(`Output amount (${outputAmount} sats) would be below dust limit (${DUST_LIMIT} sats). Need larger input amount.`);
+            throw new Error(
+                `Output amount (${outputAmount} sats) would be below dust limit (${DUST_LIMIT} sats). Need larger input amount.`,
+            );
         }
-        
+
         tx.addInput({
             ...revealPayment,
             txid,
             index,
-            witnessUtxo: { script: revealPayment.script, amount: inputAmount }
+            witnessUtxo: { script: revealPayment.script, amount: inputAmount },
         });
 
         // Send to provided recipient address
-        tx.addOutputAddress(
-            recipientAddress,
-            outputAmount,
-            btc.NETWORK
-        );
+        tx.addOutputAddress(recipientAddress, outputAmount, btc.NETWORK);
 
         tx.sign(privKey);
         tx.finalize();
@@ -130,7 +128,7 @@ export function createInscription(fileContent, feeRate, recipientAddress, existi
         tempPrivateKey: hex.encode(privKey),
         address: revealPayment.address,
         requiredAmount: fee.toString(),
-        createRevealTx: createRevealTx
+        createRevealTx: createRevealTx,
     };
 }
 
@@ -139,9 +137,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     const recipientAddress = 'bc1p3wrhf9qjustckfhkfs5g373ux06ydlet0vyuvd9rjpshxwvu5p6sulqxdd';
     const feeRate = 1.5; // Example decimal fee rate
     const fileContent = fs.readFileSync('test.txt');
-    
+
     const inscription = createInscription(fileContent, feeRate, recipientAddress);
-    
+
     console.log('=============== Inscription Details ===============');
     console.log('File size:', inscription.fileSize, 'bytes');
     console.log('Temporary private key:', inscription.tempPrivateKey);
@@ -149,3 +147,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.log('Required amount:', inscription.requiredAmount, 'satoshis');
     console.log('================================================');
 }
+

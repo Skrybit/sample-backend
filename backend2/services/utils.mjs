@@ -48,7 +48,15 @@ export function detectContentType(buffer) {
 }
 
 // @TODO implement RPC
-export async function checkPaymentToAddess(address, amountInSats) {
+export async function checkPaymentToAddess(inscriptionId, address, amountInSats, updateInscriptionPayment) {
     console.log(`checking ${address} for ${amountInSats}`);
-    return false;
+
+    // make res to check the rpc call
+    const res = false;
+
+    if (res === true) {
+        updateInscriptionPayment.run('paid', inscriptionId);
+    }
+
+    return res;
 }

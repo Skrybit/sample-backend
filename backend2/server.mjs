@@ -59,6 +59,12 @@ const updateInscription = db.prepare(`
     WHERE id = ?
 `);
 
+const updateInscriptionPayment = db.prepare(`
+    UPDATE inscriptions 
+    SET status = ? 
+    WHERE id = ?
+`);
+
 // Endpoint to create commit transaction
 app.post('/create-commit', upload.single('file'), (req, res) => {
     try {
@@ -213,6 +219,7 @@ app.get('/sender-inscriptions/:sender_address', (req, res) => {
 
 // Check if payment was made to the inscription address with required amount
 // could be triggered by frontend , when user loads the app
+// and if the inscription is paid, it updates its status withing the updateInscriptionPayment method
 app.post('/payment-status', (req, res) => {
     try {
         const { address, required_amount, sender_address, id } = req.body || {};
@@ -248,7 +255,7 @@ app.post('/payment-status', (req, res) => {
             return res.status(400).json({ error: 'Unexpected address for the inscription' });
         }
 
-        checkPaymentToAddess(row.address, row.required_amount)
+        checkPaymentToAddess(row.id, row.address, row.required_amount, updateInscriptionPayment)
             .then((isPaid) => {
                 return res.json({
                     is_paid: isPaid,

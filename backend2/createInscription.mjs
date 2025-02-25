@@ -2,66 +2,19 @@ import * as btc from '@scure/btc-signer';
 import * as ordinals from 'micro-ordinals';
 import { hex } from '@scure/base';
 import { secp256k1 } from '@noble/curves/secp256k1';
+import { detectContentType } from './services/utils.mjs';
+import { DUST_LIMIT, BTC_SIGNER_NETWORK } from './config/network.mjs';
+
 import fs from 'fs';
 
-function detectContentType(buffer) {
-    // Common file signatures and their corresponding MIME types
-    const signatures = {
-        // Images
-        ffd8ff: 'image/jpeg',
-        '89504e47': 'image/png',
-        47494638: 'image/gif',
-        // Documents
-        25504446: 'application/pdf',
-        // Audio
-        494433: 'audio/mpeg',
-        fff3: 'audio/mpeg',
-        fff2: 'audio/mpeg',
-        4944: 'audio/mpeg',
-        // Video
-        '000001': 'video/mpeg',
-        // SVG (usually starts with '<?xml' or '<svg')
-        '3c3f786d': 'image/svg+xml',
-        '3c737667': 'image/svg+xml',
-        // Text files
-        '7b': 'application/json', // Starts with {
-        '5b': 'application/json', // Starts with [
-    };
-
-    // Convert the first few bytes to hex
-    const hex = Buffer.from(buffer).toString('hex', 0, 4).toLowerCase();
-
-    // Check against signatures
-    for (let [signature, mimeType] of Object.entries(signatures)) {
-        if (hex.startsWith(signature)) {
-            return mimeType;
-        }
-    }
-
-    // Text detection (check if content is UTF-8 compatible)
-    try {
-        const textSample = buffer.slice(0, 1024).toString('utf8');
-        // If we can decode it as UTF-8 and it contains mainly printable characters
-        if (/^[\x20-\x7E\n\r\t]*$/.test(textSample)) {
-            return 'text/plain;charset=utf-8';
-        }
-    } catch (e) {
-        // If UTF-8 decode fails, ignore
-    }
-
-    // Default fallback
-    return 'application/octet-stream';
-}
-
-export function createInscription(fileContent, feeRate, recipientAddress, existingPrivKey = null) {
-    const DUST_LIMIT = 546n; // Bitcoin's standard dust limit
-
+export function createInscription(fileContent, feeRate, existingPrivKey = null) {
     // Use the provided private key or generate a new one
     const privKey = existingPrivKey
         ? hex.decode(existingPrivKey) // Convert hex string back to Uint8Array
         : secp256k1.utils.randomPrivateKey();
 
     console.log('privkey: ' + hex.encode(privKey));
+
     const pubKey = btc.utils.pubSchnorr(privKey);
 
     // Auto-detect content type from file content
@@ -82,7 +35,7 @@ export function createInscription(fileContent, feeRate, recipientAddress, existi
     const revealPayment = btc.p2tr(
         undefined,
         ordinals.p2tr_ord_reveal(pubKey, [inscription]),
-        btc.NETWORK,
+        BTC_SIGNER_NETWORK,
         false,
         customScripts,
     );
@@ -95,7 +48,7 @@ export function createInscription(fileContent, feeRate, recipientAddress, existi
     const feeInSats = Math.ceil((totalSize * feeRate) / 4);
     const fee = BigInt(feeInSats);
 
-    // Create reveal transaction function
+    // Create reveal transaction function - move it outside
     function createRevealTx(txid, index, amount) {
         const tx = new btc.Transaction({ customScripts });
         const inputAmount = BigInt(amount);
@@ -116,7 +69,7 @@ export function createInscription(fileContent, feeRate, recipientAddress, existi
         });
 
         // Send to provided recipient address
-        tx.addOutputAddress(recipientAddress, outputAmount, btc.NETWORK);
+        tx.addOutputAddress(recipientAddress, outputAmount, BTC_SIGNER_NETWORK);
 
         tx.sign(privKey);
         tx.finalize();
@@ -147,4 +100,3 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.log('Required amount:', inscription.requiredAmount, 'satoshis');
     console.log('================================================');
 }
-

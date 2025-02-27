@@ -4,10 +4,29 @@ import Database from 'better-sqlite3';
 import { hex } from '@scure/base';
 import { secp256k1 } from '@noble/curves/secp256k1';
 import fs from 'fs';
-import multer, { FileFilterCallback } from 'multer';
+
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+import multer from 'multer';
 import { createInscription } from './createInscription';
 import { checkPaymentToAddress } from './services/utils';
 import { DUST_LIMIT } from './config/network';
+
+// Get current directory path in ES module
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Resolve DB path relative to project root
+const DB_PATH = path.resolve(__dirname, '../ordinals.db');
+
+// Resolve uploads directory relative to project root
+const UPLOAD_DIR = path.resolve(__dirname, '../uploads');
+
+// Create uploads directory if it doesn't exist
+if (!fs.existsSync(UPLOAD_DIR)) {
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+}
 
 // Type definitions
 interface Inscription {
@@ -44,16 +63,22 @@ interface PaymentStatusBody {
   sender_address: string;
   id: string;
 }
+
 // Express app setup
 const app: Application = express();
 
 app.use(express.json());
 
 // Multer configuration
-const upload = multer({ dest: 'uploads/' });
+const upload = multer({
+  dest: UPLOAD_DIR,
+  fileFilter: (req, file, cb) => {
+    cb(null, true);
+  },
+});
 
 // Database setup
-const db = new Database('ordinals.db', { verbose: console.log });
+const db = new Database(DB_PATH, { verbose: console.log });
 
 function initDatabase() {
   db.exec(`
@@ -109,7 +134,7 @@ app.post('/create-commit', upload.single('file'), (req: Request, res: Response) 
     }
 
     const fileBuffer = fs.readFileSync(req.file.path);
-    const inscription = createInscription(fileBuffer, parseFloat(feeRate));
+    const inscription = createInscription(fileBuffer, parseFloat(feeRate), recipientAddress);
 
     const result = insertInscription.run(
       inscription.tempPrivateKey,
@@ -156,7 +181,7 @@ app.post('/create-reveal', upload.single('file'), (req: Request, res: Response) 
     const inscription = createInscription(
       fileBuffer,
       inscriptionData.fee_rate,
-      // inscriptionData.recipient_address,
+      inscriptionData.recipient_address,
       inscriptionData.temp_private_key,
     );
 
@@ -181,7 +206,27 @@ app.post('/create-reveal', upload.single('file'), (req: Request, res: Response) 
   }
 });
 
-// Fix 3: Update other routes similarly
+app.get('/inscription/:id', (req: Request<{ id: string }>, res: Response, next: NextFunction) => {
+  try {
+    const row = getInscription.get(Number(req.params.id)) as Inscription | undefined;
+
+    if (!row) {
+      return res.status(404).json({ error: 'Inscription not found' });
+    }
+
+    res.json({
+      id: row.id,
+      address: row.address,
+      required_amount: row.required_amount,
+      status: row.status,
+      commit_tx_id: row.commit_tx_id,
+      created_at: row.created_at,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get(
   '/sender-inscriptions/:sender_address',
   (req: Request<{ sender_address: string }>, res: Response, next: NextFunction) => {
@@ -210,29 +255,9 @@ app.get(
   },
 );
 
-// Fix 2: Proper route typing for parameterized routes
-router.get('/inscription/:id', (req: Request<{ id: string }>, res: Response, next: NextFunction) => {
-  try {
-    const row = getInscription.get(Number(req.params.id)) as Inscription | undefined;
-
-    if (!row) {
-      return res.status(404).json({ error: 'Inscription not found' });
-    }
-
-    res.json({
-      id: row.id,
-      address: row.address,
-      required_amount: row.required_amount,
-      status: row.status,
-      commit_tx_id: row.commit_tx_id,
-      created_at: row.created_at,
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Fix 1: Properly type Express routes
+// Check if payment was made to the inscription address with required amount
+// could be triggered by frontend , when user loads the app
+// and if the inscription is paid, it updates its status withing the updateInscriptionPayment method
 app.post(
   '/payment-status',
   (req: Request<Record<string, never>, {}, PaymentStatusBody>, res: Response, next: NextFunction) => {
@@ -243,12 +268,14 @@ app.post(
         return res.status(400).json({ error: 'Missing required data' });
       }
 
-      const parsedId = Number(id);
+      const parsedId = parseInt(id);
+
       if (isNaN(parsedId)) {
         return res.status(400).json({ error: 'Invalid inscription ID' });
       }
 
       const row = getInscription.get(parsedId) as Inscription | undefined;
+
       if (!row) {
         return res.status(404).json({ error: 'Inscription not found' });
       }

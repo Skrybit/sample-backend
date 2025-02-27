@@ -131,7 +131,7 @@ function getSchnorrPublicKey(privateKey) {
   return btc.utils.pubSchnorr(keyBytes);
 }
 
-export function createInscription(fileContent, feeRate, existingPrivKey = null) {
+export function createInscription(fileContent, feeRate, recipientAddress, existingPrivKey = null) {
   const privKeyObj = getPrivateKey(existingPrivKey);
 
   console.log('privKey', privKeyObj);

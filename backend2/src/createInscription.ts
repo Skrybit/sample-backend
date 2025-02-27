@@ -34,11 +34,13 @@ export function privateKeyToTestnetWIF(privateKey: Uint8Array): string {
     throw new Error('Invalid private key length');
   }
 
+  // 1 byte version + 32 bytes key + 1 byte compression flag = 34 bytes
   const version = new Uint8Array([0xef]);
   const payload = new Uint8Array(34);
+
   payload.set(version);
   payload.set(privateKey, 1);
-  payload.set([0x01], 33);
+  payload.set([0x01], 33); // Compression flag at index 33
 
   const checksum = sha256(sha256(payload)).subarray(0, 4);
   return base58.encode(new Uint8Array([...payload, ...checksum]));
@@ -73,7 +75,9 @@ function generateNetworkKeyPair(network: 'testnet' | 'mainnet'): KeyPair {
 function getPrivateKey(existingPrivKey?: string | Uint8Array | null): KeyPair {
   if (existingPrivKey) {
     if (typeof existingPrivKey === 'string') {
+      // Decode and validate WIF
       const decoded = base58.decode(existingPrivKey);
+
       const payload = decoded.subarray(0, -4);
       const checksum = decoded.subarray(-4);
       const verifyChecksum = sha256(sha256(payload)).subarray(0, 4);
@@ -136,12 +140,15 @@ function getSchnorrPublicKey(privateKey: string | Uint8Array): Uint8Array {
 export function createInscription(
   fileContent: Uint8Array,
   feeRate: number,
+  recipientAddress: string,
   existingPrivKey?: string | Uint8Array | null,
 ): InscriptionResult {
   const privKeyObj = getPrivateKey(existingPrivKey);
-  const pubKey = getSchnorrPublicKey(privKeyObj.wif);
+  const { wif: privKeyHex } = privKeyObj;
+  const pubKey = getSchnorrPublicKey(privKeyHex);
 
   const contentType = detectContentType(fileContent);
+
   const inscription: InscriptionData = {
     tags: { contentType },
     body: fileContent,
@@ -157,8 +164,9 @@ export function createInscription(
     customScripts,
   );
 
-  const witnessSize = fileContent.length + 100;
-  const totalSize = witnessSize + 200;
+  const witnessSize = fileContent.length + 100; // Add padding for witness overhead
+  const totalSize = witnessSize + 200; // Add padding for transaction overhead
+
   const feeInSats = Math.ceil((totalSize * feeRate) / 4);
   const fee = BigInt(feeInSats);
 
@@ -178,7 +186,9 @@ export function createInscription(
       witnessUtxo: { script: revealPayment.script, amount: inputAmount },
     });
 
-    tx.addOutputAddress(revealPayment.address!, outputAmount, BTC_SIGNER_NETWORK);
+    // Send to provided recipient address
+    tx.addOutputAddress(recipientAddress, outputAmount, BTC_SIGNER_NETWORK);
+
     tx.sign(privKeyObj.raw);
     tx.finalize();
 

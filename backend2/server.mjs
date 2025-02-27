@@ -78,7 +78,7 @@ app.post('/create-commit', upload.single('file'), (req, res) => {
     const fileBuffer = fs.readFileSync(req.file.path);
 
     // Create inscription
-    const inscription = createInscription(fileBuffer, parseFloat(feeRate));
+    const inscription = createInscription(fileBuffer, parseFloat(feeRate), recipientAddress);
 
     // Save to database
     const result = insertInscription.run(
@@ -140,7 +140,6 @@ app.post('/create-reveal', upload.single('file'), (req, res) => {
     );
 
     // Create reveal transaction
-    // const revealTx = inscription.createRevealTx(commitTxId, parseInt(vout), parseInt(amount));
     const revealTx = inscription.createRevealTx(commitTxId, parseInt(vout), parseInt(amount));
 
     // Update database with commit tx id and reveal tx hex

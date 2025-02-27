@@ -1,9 +1,8 @@
 {
   "scripts": {
-    "dev": "ts-node src/server.ts",
-    "dev:watch": "ts-node-dev --respawn src/server.ts",
+    "dev": "ts-node ./src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js",
+    "start": "node ./dist/server.js",
     "clean": "rm -rf dist/"
   },
   "dependencies": {

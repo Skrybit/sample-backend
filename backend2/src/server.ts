@@ -6,7 +6,7 @@ import { secp256k1 } from '@noble/curves/secp256k1';
 import fs from 'fs';
 
 import path from 'path';
-import { fileURLToPath } from 'url';
+// import { fileURLToPath } from 'url';
 
 import multer from 'multer';
 import { createInscription } from './createInscription';
@@ -14,19 +14,19 @@ import { checkPaymentToAddress } from './services/utils';
 import { DUST_LIMIT } from './config/network';
 
 // Get current directory path in ES module
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// const __filename = fileURLToPath(import.meta.url);
+// const __dirname = path.dirname(__filename);
 
 // Resolve DB path relative to project root
-const DB_PATH = path.resolve(__dirname, '../ordinals.db');
+// const DB_PATH = path.resolve(__dirname, '../ordinals.db');
 
 // Resolve uploads directory relative to project root
-const UPLOAD_DIR = path.resolve(__dirname, '../uploads');
+// const UPLOAD_DIR = path.resolve(__dirname, '../uploads');
 
 // Create uploads directory if it doesn't exist
-if (!fs.existsSync(UPLOAD_DIR)) {
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-}
+// if (!fs.existsSync(UPLOAD_DIR)) {
+// fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+// }
 
 // Type definitions
 interface Inscription {
@@ -71,14 +71,16 @@ app.use(express.json());
 
 // Multer configuration
 const upload = multer({
-  dest: UPLOAD_DIR,
-  fileFilter: (req, file, cb) => {
-    cb(null, true);
-  },
+  dest: './uploads',
+  // dest: UPLOAD_DIR,
+  // fileFilter: (req, file, cb) => {
+  //   cb(null, true);
+  // },
 });
 
 // Database setup
-const db = new Database(DB_PATH, { verbose: console.log });
+// const db = new Database(DB_PATH, { verbose: console.log });
+const db = new Database('./ordinals.db', { verbose: console.log });
 
 function initDatabase() {
   db.exec(`

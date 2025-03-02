@@ -1,32 +1,28 @@
-// server.ts
 import express, { Request, Application, Response, NextFunction } from 'express';
 import Database from 'better-sqlite3';
 import { hex } from '@scure/base';
 import { secp256k1 } from '@noble/curves/secp256k1';
 import fs from 'fs';
-
 import path from 'path';
-// import { fileURLToPath } from 'url';
-
 import multer from 'multer';
 import { createInscription } from './createInscription';
 import { checkPaymentToAddress } from './services/utils';
 import { DUST_LIMIT } from './config/network';
+import { getUTCTimestampInSec, timestampToDateString } from './utils/date';
 
-// Get current directory path in ES module
-// const __filename = fileURLToPath(import.meta.url);
-// const __dirname = path.dirname(__filename);
+console.log('__filename', __filename);
+console.log(' __dirname: %s', __dirname);
 
 // Resolve DB path relative to project root
-// const DB_PATH = path.resolve(__dirname, '../ordinals.db');
+const DB_PATH = path.resolve(__dirname, '../ordinals.db');
 
 // Resolve uploads directory relative to project root
-// const UPLOAD_DIR = path.resolve(__dirname, '../uploads');
+const UPLOAD_DIR = path.resolve(__dirname, '../uploads');
 
 // Create uploads directory if it doesn't exist
-// if (!fs.existsSync(UPLOAD_DIR)) {
-// fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-// }
+if (!fs.existsSync(UPLOAD_DIR)) {
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+}
 
 // Type definitions
 interface Inscription {
@@ -71,16 +67,16 @@ app.use(express.json());
 
 // Multer configuration
 const upload = multer({
-  dest: './uploads',
-  // dest: UPLOAD_DIR,
+  // dest: './uploads',
+  dest: UPLOAD_DIR,
   // fileFilter: (req, file, cb) => {
   //   cb(null, true);
   // },
 });
 
 // Database setup
-// const db = new Database(DB_PATH, { verbose: console.log });
-const db = new Database('./ordinals.db', { verbose: console.log });
+const db = new Database(DB_PATH, { verbose: console.log });
+// const db = new Database('./ordinals.db', { verbose: console.log });
 
 function initDatabase() {
   db.exec(`
@@ -108,8 +104,8 @@ initDatabase();
 const insertInscription = db.prepare(`
   INSERT INTO inscriptions (
     temp_private_key, address, required_amount,
-    file_size, recipient_address, sender_address, fee_rate
-  ) VALUES (?, ?, ?, ?, ?, ?, ?)
+    file_size, recipient_address, sender_address, fee_rate, created_at
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 `);
 
 const getInscription = db.prepare<number>('SELECT * FROM inscriptions WHERE id = ?');
@@ -138,6 +134,10 @@ app.post('/create-commit', upload.single('file'), (req: Request, res: Response) 
     const fileBuffer = fs.readFileSync(req.file.path);
     const inscription = createInscription(fileBuffer, parseFloat(feeRate), recipientAddress);
 
+    const timestamp = getUTCTimestampInSec();
+
+    const createdAtUtc = timestampToDateString(timestamp);
+
     const result = insertInscription.run(
       inscription.tempPrivateKey,
       inscription.address,
@@ -146,6 +146,7 @@ app.post('/create-commit', upload.single('file'), (req: Request, res: Response) 
       recipientAddress,
       senderAddress,
       feeRate,
+      createdAtUtc,
     );
 
     fs.unlinkSync(req.file.path);

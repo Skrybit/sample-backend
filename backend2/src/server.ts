@@ -8,7 +8,7 @@ import multer from 'multer';
 import { createInscription } from './createInscription';
 import { checkPaymentToAddress } from './services/utils';
 import { DUST_LIMIT } from './config/network';
-import { getUTCTimestampInSec, timestampToDateString } from './utils/date';
+import { getUTCTimestampInSec, timestampToDateString } from './utils/dateUtils';
 
 console.log('__filename', __filename);
 console.log(' __dirname: %s', __dirname);

@@ -49,3 +49,19 @@ export function detectContentType(buffer: Uint8Array): string {
   // Default fallback
   return 'application/octet-stream';
 }
+
+export function satsToBtc(sats: number): number | null {
+  if (typeof sats !== 'number' || isNaN(sats) || sats < 0) {
+    console.error('Invalid input: Sats must be a non-negative number.');
+    return null;
+  }
+  return Math.round(sats / 1e8);
+}
+
+export function btcToSats(btc: number): number | null {
+  if (typeof btc !== 'number' || isNaN(btc) || btc < 0) {
+    console.error('Invalid input: BTC must be a non-negative number.');
+    return null;
+  }
+  return Math.round(btc * 1e8);
+}

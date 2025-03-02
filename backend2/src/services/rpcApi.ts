@@ -20,13 +20,32 @@ type BlockHeader = {
   hash: string;
 };
 
+// check it
 type RpcRes<T> = {
-  success: boolean;
-  result: T | false;
-  error?: ErrorDetails;
+  success: true;
+  result: T;
 };
 
-interface ErrorDetails {
+type RpcErrRes = {
+  success: false;
+  error: ErrorDetails;
+};
+
+// Axis response -> response.data
+type RpcResponse<T> = {
+  result: T;
+  id: string;
+  error: null;
+};
+
+// Axios error -> error.response.data
+type RpcErrResponse = {
+  result: null;
+  id: string;
+  error: { code: number; message: string };
+};
+
+export type ErrorDetails = {
   errCode: string;
   errMsg: string;
   errStatus: string;
@@ -35,8 +54,86 @@ interface ErrorDetails {
   dataErrCode?: unknown;
   dataErrMsg: string;
   details: string;
-  originalResponseError?: unknown;
-}
+  originalResponseError?: RpcErrResponse;
+};
+
+type IsWalletLoadedResponse =
+  | { walletName: string; success: true; result: true }
+  | { walletName: string; success: false; error: ErrorDetails };
+
+type LoadWalletResponse =
+  | { walletName: string; success: false; error: ErrorDetails }
+  | {
+      walletName: string;
+      success: true;
+      result: boolean;
+    };
+
+type UnLoadWalletResponse =
+  | { walletName: string; success: true; result: boolean }
+  | { walletName: string; success: false; error: ErrorDetails };
+
+type CreateWalletResponse =
+  | { walletName: string; success: true; result: boolean }
+  | { walletName: string; success: false; error: ErrorDetails };
+
+type GetDescriptorChecksumResponse = { result: string; success: true } | { success: false; error: ErrorDetails };
+
+type ImportDescriptorResponse = { success: true; result: boolean } | { success: false; error: ErrorDetails };
+
+type GetBalanceResponse = { success: true; result: number } | { success: false; error: ErrorDetails };
+
+type RescanBlockchainResponse =
+  | {
+      success: true;
+      startHeight: number;
+      stoptHeight: number;
+    }
+  | {
+      success: false;
+      startHeight: number;
+      error: ErrorDetails;
+    };
+
+type WalletAddress = {
+  address: string;
+  amount: number;
+  confirmations: number;
+  label: string;
+  txids: string[];
+};
+
+type ListWalletAddressesResponse = { success: true; result: WalletAddress[] } | { success: false; error: ErrorDetails };
+
+export type AddressUtxo = {
+  txid: string;
+  vout: number;
+  address: string;
+  amount: number;
+  confirmations: number;
+  scriptPubKey: string;
+  spendable: boolean;
+};
+
+type ListAddressUTXOResponse = { success: true; result: AddressUtxo[] } | { success: false; error: ErrorDetails };
+
+type ScanTxOutSetResponse = { success: true; result: { progress: number } } | { success: false; error: ErrorDetails };
+
+type GetBlockAtTimeApproximateResponse =
+  | { success: true; result: BlockHeader }
+  | { success: false; error: ErrorDetails };
+
+// export function isSuccessResponse(
+//   response: WalletAddressResponse
+// ): response is { success: boolean; result: WalletAddress[]; originalResponse: RpcRes<WalletAddressResponse[]> } {
+//   return 'result' in response;
+// }
+//
+// function isErrorResponse(
+//   response: WalletAddressResponse
+// ): response is { success: boolean; error: ErrorDetails } {
+//   return 'error' in response;
+// }
 
 export function buildRpcUrlForWallet(walletName: string) {
   if (!walletName) {
@@ -58,13 +155,12 @@ const getAuthHeaders = () => {
   };
 };
 
-// @TODO: make rest of functions to use this rpcCall
 async function rpcCall<T>(
   method: string,
   params: any[],
-  errorDetailsText = '',
+  errorDetailsTextToOverwrite = '',
   timeout = RPC_TIMEOUT,
-): Promise<RpcRes<T>> {
+): Promise<RpcRes<T> | RpcErrRes> {
   try {
     const response = await axios.post(
       RPC_URL,
@@ -81,10 +177,12 @@ async function rpcCall<T>(
     );
 
     if (response.data.error) {
-      throw new Error(response.data.error.message);
+      return {
+        success: false,
+        error: getErrorDetails(new Error(response.data.error.message)),
+      };
     }
 
-    // return response.data.result;
     return {
       success: true,
       result: response?.data?.result,
@@ -96,17 +194,18 @@ async function rpcCall<T>(
 
     const errorDetails = getErrorDetails(error);
 
-    const errorToReturn = errorDetailsText ? { ...errorDetails, details: errorDetailsText } : errorDetails;
+    const errorToReturn = errorDetailsTextToOverwrite
+      ? { ...errorDetails, details: errorDetailsTextToOverwrite }
+      : errorDetails;
 
     return {
       success: false,
-      result: false,
       error: errorToReturn,
     };
   }
 }
 
-const getErrorDetails = (error: any): ErrorDetails => {
+export const getErrorDetails = (error: any): ErrorDetails => {
   const errCode = error.code || 'unknown code';
   const errMsg = error.message || 'unknown message';
   const errStatus = error.status || 'unknown status';
@@ -133,7 +232,8 @@ const getErrorDetails = (error: any): ErrorDetails => {
   };
 };
 
-export async function isWalletLoaded(walletName: string) {
+// done
+export async function isWalletLoaded(walletName: string): Promise<IsWalletLoadedResponse> {
   try {
     const response = await axios.post(
       RPC_URL,
@@ -149,23 +249,34 @@ export async function isWalletLoaded(walletName: string) {
       },
     );
 
+    console.log('isWalletLoaded response', response.data);
     const loadedWallets: string[] = response?.data?.result;
     const success = loadedWallets.includes(walletName);
 
-    return { walletName, success };
+    if (success) {
+      return { walletName, success, result: true };
+    }
+
+    return {
+      walletName,
+      success,
+      error: getErrorDetails(new Error(`Could not find wallet "${walletName}" in a list of wallets`)),
+    };
   } catch (error) {
     if (!axios.isAxiosError(error)) {
       handleNonRpcError(error);
     }
 
     return {
+      walletName,
       success: false,
       error: getErrorDetails(error),
     };
   }
 }
 
-export async function loadWallet(walletName: string) {
+// done
+export async function loadWallet(walletName: string): Promise<LoadWalletResponse> {
   try {
     const response = await axios.post(
       RPC_URL,
@@ -181,10 +292,17 @@ export async function loadWallet(walletName: string) {
       },
     );
 
+    // response
+    // data: {
+    //   result: { name: 'insc_wallet_20' },
+    //   error: null,
+    //   id: 'wallet_load'
+    // }
+
     return {
       walletName,
-      success: !response?.data?.error,
-      originalResponse: response?.data,
+      success: true,
+      result: !response?.data?.error,
     };
   } catch (error) {
     if (!axios.isAxiosError(error)) {
@@ -193,24 +311,24 @@ export async function loadWallet(walletName: string) {
 
     const errorDetails = getErrorDetails(error);
 
-    let errorDetailsText = errorDetails.details;
-
-    let success = false;
-
     if (errorDetails?.dataErrMsg?.includes('already loaded')) {
-      errorDetailsText = `ℹ️ Wallet "${walletName}" already loaded`;
-      success = true;
+      return {
+        walletName,
+        success: true,
+        result: true,
+      };
     }
 
     return {
       walletName,
-      success,
-      error: { ...errorDetails, details: errorDetailsText },
+      success: false,
+      error: errorDetails,
     };
   }
 }
 
-export async function unLoadWallet(walletName: string) {
+// done
+export async function unLoadWallet(walletName: string): Promise<UnLoadWalletResponse> {
   try {
     const response = await axios.post(
       RPC_URL,
@@ -226,10 +344,11 @@ export async function unLoadWallet(walletName: string) {
       },
     );
 
+    // data: { result: {}, error: null, id: 'wallet_unload' }
     return {
+      success: true,
+      result: !response?.data?.error,
       walletName,
-      success: !response?.data?.error,
-      originalResponse: response?.data,
     };
   } catch (error) {
     if (!axios.isAxiosError(error)) {
@@ -244,7 +363,8 @@ export async function unLoadWallet(walletName: string) {
   }
 }
 
-export async function createWallet(walletName: string, descriptorSupport = false) {
+// done
+export async function createWallet(walletName: string, descriptorSupport = false): Promise<CreateWalletResponse> {
   const paramsForImportPrivateKey = [
     false, // disable_private_keys
     false, // blank
@@ -280,8 +400,8 @@ export async function createWallet(walletName: string, descriptorSupport = false
 
     return {
       walletName,
-      success: !response?.data?.error,
-      originalResponse: response?.data,
+      success: true,
+      result: !response?.data?.error,
     };
   } catch (error) {
     if (!axios.isAxiosError(error)) {
@@ -296,7 +416,8 @@ export async function createWallet(walletName: string, descriptorSupport = false
   }
 }
 
-export async function getDescriptorChecksum(descriptor: string) {
+// done
+export async function getDescriptorChecksum(descriptor: string): Promise<GetDescriptorChecksumResponse> {
   try {
     const response = await axios.post(
       RPC_URL,
@@ -315,9 +436,8 @@ export async function getDescriptorChecksum(descriptor: string) {
     const descriptorChecksum = `${response?.data?.result?.checksum}`;
 
     return {
-      descriptorChecksum,
-      success: !response?.data?.error,
-      originalResponse: response.data,
+      result: descriptorChecksum,
+      success: true,
     };
   } catch (error) {
     if (!axios.isAxiosError(error)) {
@@ -325,19 +445,22 @@ export async function getDescriptorChecksum(descriptor: string) {
     }
 
     return {
-      descriptorChecksum: '',
       success: false,
       error: getErrorDetails(error),
     };
   }
 }
 
-export async function importDescriptor(descriptorWithChecksum: string, walletName: string) {
+// done
+export async function importDescriptor(
+  descriptorWithChecksum: string,
+  walletName: string,
+): Promise<ImportDescriptorResponse> {
   try {
     const url = buildRpcUrlForWallet(walletName);
 
     const response = await axios.post(
-      url, // with the wallet name
+      url,
       {
         jsonrpc: '1.0',
         id: 'import_descriptor',
@@ -362,8 +485,8 @@ export async function importDescriptor(descriptorWithChecksum: string, walletNam
     );
 
     return {
-      success: !response?.data?.error && response?.data?.result[0]?.success,
-      originalResponse: response.data,
+      success: true,
+      result: !response?.data?.error && response?.data?.result[0]?.success,
     };
   } catch (error) {
     if (!axios.isAxiosError(error)) {
@@ -377,7 +500,8 @@ export async function importDescriptor(descriptorWithChecksum: string, walletNam
   }
 }
 
-export async function getBalance(walletName: string) {
+// done
+export async function getBalance(walletName: string): Promise<GetBalanceResponse> {
   try {
     const url = buildRpcUrlForWallet(walletName);
 
@@ -385,7 +509,7 @@ export async function getBalance(walletName: string) {
       url,
       {
         jsonrpc: '1.0',
-        id: 'get_balance',
+        id: 'get_balancea',
         method: 'getbalance',
       },
       {
@@ -395,12 +519,11 @@ export async function getBalance(walletName: string) {
     );
 
     const balance = response?.data?.result;
+    console.log('bb balance', response.data);
 
     return {
-      success: !response?.data?.error,
-      balance,
-      details: `✅ WalletName "${walletName}" has balance "${balance}"`,
-      originalResponse: response.data,
+      success: true,
+      result: balance || 0,
     };
   } catch (error) {
     if (!axios.isAxiosError(error)) {
@@ -414,7 +537,8 @@ export async function getBalance(walletName: string) {
   }
 }
 
-export async function rescanBlockchain(walletName: string, startBlock: number) {
+// done - scans blockchain from block
+export async function rescanBlockchain(walletName: string, startBlock: number): Promise<RescanBlockchainResponse> {
   try {
     const url = buildRpcUrlForWallet(walletName);
     const response = await axios.post(
@@ -432,11 +556,9 @@ export async function rescanBlockchain(walletName: string, startBlock: number) {
     );
 
     return {
-      success: !response?.data?.error,
+      success: true,
       startHeight: response?.data?.result?.start_height,
       stoptHeight: response?.data?.result?.stop_height,
-      details: `✅ WalletName "${walletName}" has been rescanned`,
-      originalResponse: response.data,
     };
   } catch (error) {
     if (!axios.isAxiosError(error)) {
@@ -445,14 +567,14 @@ export async function rescanBlockchain(walletName: string, startBlock: number) {
 
     return {
       success: false,
-      startHeight: 0,
-      stopHeight: 0,
+      startHeight: startBlock,
       error: getErrorDetails(error),
     };
   }
 }
 
-export async function listWalletReceivedByAddress(walletName: string) {
+// done
+export async function listWalletAddresses(walletName: string): Promise<ListWalletAddressesResponse> {
   try {
     const url = buildRpcUrlForWallet(walletName);
 
@@ -474,17 +596,9 @@ export async function listWalletReceivedByAddress(walletName: string) {
       },
     );
 
-    // const addresses = response?.data?.result as Array<{
-    //   address: string;
-    //   amount: number;
-    //   confirmations: number;
-    //   label: string;
-    //   txids: string[];
-    // }>;
-
     return {
-      success: !response?.data?.error,
-      addresses: response?.data?.result,
+      success: true,
+      result: response?.data?.result || [],
     };
   } catch (error) {
     if (!axios.isAxiosError(error)) {
@@ -493,13 +607,13 @@ export async function listWalletReceivedByAddress(walletName: string) {
 
     return {
       success: false,
-      addresses: [],
       error: getErrorDetails(error),
     };
   }
 }
 
-export async function listAddressUTXOs(walletName: string, addresses: string[]) {
+// done
+export async function listAddressUTXO(walletName: string, addresses: string[]): Promise<ListAddressUTXOResponse> {
   try {
     const url = buildRpcUrlForWallet(walletName);
     const response = await axios.post(
@@ -520,19 +634,9 @@ export async function listAddressUTXOs(walletName: string, addresses: string[]) 
       },
     );
 
-    // const utxoList = response.data.result as Array<{
-    //   txid: string;
-    //   vout: number;
-    //   address: string;
-    //   amount: number;
-    //   confirmations: number;
-    //   scriptPubKey: string;
-    //   spendable: boolean;
-    // }>;
-
     return {
-      success: !response?.data?.error,
-      utxoList: response?.data?.result,
+      success: true,
+      result: response?.data?.result || [],
     };
   } catch (error) {
     if (!axios.isAxiosError(error)) {
@@ -541,7 +645,6 @@ export async function listAddressUTXOs(walletName: string, addresses: string[]) 
 
     return {
       success: false,
-      utxoList: [],
       error: getErrorDetails(error),
     };
   }
@@ -553,7 +656,8 @@ export async function listAddressUTXOs(walletName: string, addresses: string[]) 
 // No Wallet Required - Operates directly on blockchain data
 // Testnet Only - Use with caution on mainnet due to resource usage
 // scan loaded descriptor (long time call)
-export async function scanTxOutSet(addresses: string[]) {
+// done
+export async function scanTxOutSet(addresses: string[]): Promise<ScanTxOutSetResponse> {
   try {
     const descriptors = addresses.map((addr) => `addr(${addr})`);
 
@@ -571,10 +675,20 @@ export async function scanTxOutSet(addresses: string[]) {
       },
     );
 
+    const success = !response?.data?.error;
+
+    if (!success) {
+      const errMsg = `Could not scan descriptors "${descriptors.join(',')}. Details: "${JSON.stringify(response?.data?.error || {})}"`;
+
+      return {
+        success: false,
+        error: getErrorDetails(new Error(errMsg)),
+      };
+    }
+
     return {
-      success: !response?.data?.error,
-      scanResult: response?.data?.result,
-      details: `✅ Addresses "${addresses.join(',')}" have been checked`,
+      success: true,
+      result: { progress: 100 },
     };
   } catch (error) {
     if (!axios.isAxiosError(error)) {
@@ -595,7 +709,6 @@ export async function scanTxOutSet(addresses: string[]) {
 
     return {
       success: false,
-      scanResult: false,
       error: errorDetails,
     };
   }
@@ -607,7 +720,8 @@ export async function scanTxOutSet(addresses: string[]) {
 // No Wallet Required - Operates directly on blockchain data
 // Testnet Only - Use with caution on mainnet due to resource usage
 // scan loaded descriptor (long time call)
-export async function scanTxOutSetStatus(addresses: string[]) {
+// done
+export async function scanTxOutSetStatus(addresses: string[]): Promise<ScanTxOutSetResponse> {
   try {
     const descriptors = addresses.map((addr) => `addr(${addr})`);
 
@@ -625,11 +739,22 @@ export async function scanTxOutSetStatus(addresses: string[]) {
       },
     );
 
+    const success = !response?.data?.error;
+
+    if (!success) {
+      const errMsg = `Could not check scan status for descriptors "${descriptors.join(',')}. Details: "${JSON.stringify(response?.data?.error || {})}"`;
+
+      return {
+        success: false,
+        error: getErrorDetails(new Error(errMsg)),
+      };
+    }
+
     const scanResult = response?.data?.result;
 
     return {
-      success: !response?.data?.error,
-      scanResult,
+      success: true,
+      result: scanResult,
     };
   } catch (error) {
     if (!axios.isAxiosError(error)) {
@@ -638,16 +763,16 @@ export async function scanTxOutSetStatus(addresses: string[]) {
 
     return {
       success: false,
-      scanResult: { progress: 0 },
       error: getErrorDetails(error),
     };
   }
 }
 
+// done
 export async function getBlockAtTimeApproximate(
   createdAt: string,
   verifyIntegrity = false,
-): Promise<{ success: true; result: BlockHeader } | { success: false; error?: ErrorDetails }> {
+): Promise<GetBlockAtTimeApproximateResponse> {
   // Convert input time to Unix timestamp
   const targetTime = dateUtils.dateToUTCTimestamp(createdAt);
   console.log('ℹ️ Iscription create time (given target)  ', createdAt);
@@ -660,7 +785,7 @@ export async function getBlockAtTimeApproximate(
     `❌ Could not get current blockchain info `,
   );
 
-  if (!currentBlockchainInfo.result || !currentBlockchainInfo.success) {
+  if (!currentBlockchainInfo.success) {
     return { success: false, error: currentBlockchainInfo.error };
   }
 
@@ -682,15 +807,21 @@ export async function getBlockAtTimeApproximate(
     const mid = Math.floor((low + high) / 2);
     const blockHashResult = await rpcCall<string>('getblockhash', [mid]);
 
-    if (!blockHashResult.result || !blockHashResult.success) {
-      throw new Error('could not get blockhash info');
+    if (!blockHashResult.success) {
+      return {
+        success: false,
+        error: getErrorDetails(new Error(`could not get blockhash info for mid height "${mid}`)),
+      };
     }
     const blockHash = blockHashResult.result;
 
     const blockHeaderResult = await rpcCall<BlockHeader>('getblockheader', [blockHash]);
 
-    if (!blockHeaderResult.result || !blockHeaderResult.success) {
-      throw new Error('could not get blockcheader info');
+    if (!blockHeaderResult.success) {
+      return {
+        success: false,
+        error: getErrorDetails(new Error(`could not get blockheader info for blockhash ${blockHash}`)),
+      };
     }
 
     const blockHeader = blockHeaderResult.result;
@@ -725,24 +856,44 @@ export async function getBlockAtTimeApproximate(
   while (currentBlock.height > 0) {
     const blockHeaderResult = await rpcCall<BlockHeader>('getblockheader', [currentBlock.hash]);
 
-    if (!blockHeaderResult.result || !blockHeaderResult.success) {
-      throw new Error('could not get blockcheader info');
+    if (!blockHeaderResult.success) {
+      return {
+        success: false,
+        error: getErrorDetails(
+          new Error(`could not get blockcheader info for currentBlock hash "${currentBlock.hash}"`),
+        ),
+      };
     }
 
     const parentHeader = blockHeaderResult.result;
 
     const blockResult = await rpcCall<BlockHeader>('getblockheader', [parentHeader.previousblockhash]);
 
-    if (!blockResult.result || !blockResult.success) {
-      throw new Error('could not get blockheader info');
+    if (!blockResult.success) {
+      return {
+        success: false,
+        error: getErrorDetails(
+          new Error(
+            `could not get blockheader info for parentHeader previousblockhash "${parentHeader.previousblockhash}"`,
+          ),
+        ),
+      };
     }
     const parentBlock = blockResult.result;
 
     console.log('✅ parentBlock    ', parentBlock.height);
 
     if (parentBlock.height !== currentBlock.height - 1) {
-      throw new Error('Blockchain consistency check failed');
+      return {
+        success: false,
+        error: getErrorDetails(
+          new Error(
+            `Blockchain consistency check failed , parentBlock.height !== currentBlock.height - 1 -> parentBlock height "${parentBlock.height}", currentBlock height "${currentBlock.height}"`,
+          ),
+        ),
+      };
     }
+
     currentBlock = { ...parentBlock, hash: parentHeader.previousblockhash };
     console.log('✅ currentBlock confirmed    ', currentBlock.height);
   }

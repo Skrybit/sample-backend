@@ -295,18 +295,36 @@ app.post(
         return res.status(400).json({ error: 'Address mismatch' });
       }
 
-      checkPaymentToAddress(row.id, row.address, row.required_amount, (status: string, id: number) =>
-        updateInscriptionPayment.run(status, id),
+      checkPaymentToAddress(
+        row.id,
+        row.status,
+        row.created_at,
+        row.address,
+        row.required_amount,
+        (status: string, id: number) => updateInscriptionPayment.run(status, id),
       )
-        .then((isPaid) =>
-          res.json({
-            is_paid: isPaid,
+        .then((checkPaymentResult) => {
+          if (!checkPaymentResult.success) {
+            return res.json({
+              is_paid: false,
+              id: row.id,
+              address: row.address,
+              amount: row.required_amount,
+              sender_address: row.sender_address,
+              error_details: checkPaymentResult.error,
+            });
+          }
+
+          const { result } = checkPaymentResult;
+
+          return res.json({
+            is_paid: result,
             id: row.id,
             address: row.address,
             amount: row.required_amount,
             sender_address: row.sender_address,
-          }),
-        )
+          });
+        })
         .catch((error) =>
           res.status(400).json({ error: error instanceof Error ? error.message : 'Payment check failed' }),
         );

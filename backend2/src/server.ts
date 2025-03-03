@@ -187,16 +187,10 @@ app.post('/create-commit', upload.single('file'), (req: Request, res: Response) 
           requiredAmount: inscription.requiredAmount,
           createResult: result,
         });
-        // return res.json({
-        //   createResult: result,
-        //   address: inscription.address,
-        // });
       })
       .catch((error) =>
         res.status(400).json({ error: error instanceof Error ? error.message : 'Wallet create failed' }),
       );
-
-    // fs.unlinkSync(req.file.path);
 
     // res.json({
     //   inscriptionId: result.lastInsertRowid,

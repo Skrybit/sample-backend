@@ -166,10 +166,12 @@ export async function getAddressDescriptorWithChecksum(
   const getDescriptorChecksumResult = await getDescriptorChecksum(baseDescriptor);
 
   if (!getDescriptorChecksumResult.success) {
+    console.log('err aa 1', getDescriptorChecksumResult.error);
     return { success: false, error: getDescriptorChecksumResult.error };
   }
 
   const descriptorWithChecksum = `${baseDescriptor}#${getDescriptorChecksumResult.result}`;
+  console.log('descriptorWithChecksum', descriptorWithChecksum);
 
   return { result: descriptorWithChecksum, success: true };
 }
@@ -185,24 +187,28 @@ export async function createWalletAndAddressDescriptor(
   const createWalletResult = await createWallet(walletName, true);
 
   if (!createWalletResult.success) {
+    console.log('err 1', createWalletResult.error);
     return { success: false, error: createWalletResult.error };
   }
 
-  const loadWalletResult = await createWallet(walletName, true);
+  const loadWalletResult = await loadWallet(walletName);
 
   if (!loadWalletResult.success) {
+    console.log('err 2', loadWalletResult.error);
     return { success: false, error: loadWalletResult.error };
   }
 
   const descriptorToImportResult = await getAddressDescriptorWithChecksum(revealAddress);
 
   if (!descriptorToImportResult.success) {
+    console.log('err 3', descriptorToImportResult.error);
     return { success: false, error: descriptorToImportResult.error };
   }
 
   const importResult = await importDescriptor(descriptorToImportResult.result, walletName);
 
   if (!importResult.success) {
+    console.log('err 4', importResult.error);
     return { success: false, error: importResult.error };
   }
 

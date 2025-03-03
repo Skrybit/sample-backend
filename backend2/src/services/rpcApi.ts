@@ -31,7 +31,7 @@ type RpcErrRes = {
   error: ErrorDetails;
 };
 
-// Axis response -> response.data
+// Axis response -> response.data, map it later when functions use rpcCall
 type RpcResponse<T> = {
   result: T;
   id: string;

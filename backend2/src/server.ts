@@ -6,10 +6,10 @@ import fs from 'fs';
 import path from 'path';
 import multer from 'multer';
 import { createInscription } from './createInscription';
-import { checkPaymentToAddress, getPaymentUtxo } from './services/utils';
 import { DUST_LIMIT } from './config/network';
+import { getPublicKeyFromWif, getPrivateKey } from './utils/walletUtils';
+import { checkPaymentToAddress, getPaymentUtxo } from './services/utils';
 import { getUTCTimestampInSec, timestampToDateString } from './utils/dateUtils';
-import { payments } from 'bitcoinjs-lib';
 
 console.log('__filename', __filename);
 console.log(' __dirname: %s', __dirname);
@@ -66,13 +66,21 @@ const app: Application = express();
 
 app.use(express.json());
 
+// bigint parse middleware
+app.use((req, res, next) => {
+  const originalJson = res.json;
+  res.json = function (obj) {
+    const sanitized = JSON.parse(
+      JSON.stringify(obj, (_, value) => (typeof value === 'bigint' ? value.toString() : value)),
+    );
+    return originalJson.call(this, sanitized);
+  };
+  next();
+});
+
 // Multer configuration
 const upload = multer({
-  // dest: './uploads',
   dest: UPLOAD_DIR,
-  // fileFilter: (req, file, cb) => {
-  //   cb(null, true);
-  // },
 });
 
 // Database setup
@@ -150,6 +158,8 @@ app.post('/create-commit', upload.single('file'), (req: Request, res: Response) 
       createdAtUtc,
     );
 
+    console.log('req.file.path commit', req.file?.path);
+
     fs.unlinkSync(req.file.path);
 
     res.json({
@@ -167,7 +177,7 @@ app.post('/create-commit', upload.single('file'), (req: Request, res: Response) 
   }
 });
 
-// get particular inscription details
+// Get particular inscription details
 app.get('/inscription/:id', (req: Request<{ id: string }>, res: Response, next: NextFunction) => {
   try {
     const row = getInscription.get(Number(req.params.id)) as Inscription | undefined;
@@ -189,7 +199,7 @@ app.get('/inscription/:id', (req: Request<{ id: string }>, res: Response, next: 
   }
 });
 
-// get all inscriptions by given sender address. could be used in an inial call from the landing page
+// Get all inscriptions by given sender address. could be used in an inial call from the landing page
 app.get(
   '/sender-inscriptions/:sender_address',
   (req: Request<{ sender_address: string }>, res: Response, next: NextFunction) => {
@@ -219,8 +229,8 @@ app.get(
 );
 
 // Check if payment was made to the inscription address with required amount
-// could be triggered by frontend , when user loads the app
-// and if the inscription is paid, it updates its status withing the updateInscriptionPayment method
+// could be triggered by frontend , when user loads the app and if the inscription is paid,
+// it updates its status withing the updateInscriptionPayment method
 app.post(
   '/payment-status',
   (req: Request<Record<string, never>, {}, PaymentStatusBody>, res: Response, next: NextFunction) => {
@@ -294,7 +304,8 @@ app.post(
   },
 );
 
-// when payment is made we need to get tx id and vout to be able to call create-reveal
+// Returns an utxo that was sent to the inscription address (paypent proof)
+// so tx and vout could be used to create reveal
 app.post(
   '/payment-utxo',
   (req: Request<Record<string, never>, {}, PaymentStatusBody>, res: Response, next: NextFunction) => {
@@ -329,7 +340,7 @@ app.post(
         return res.status(400).json({ error: 'Address mismatch' });
       }
 
-      getPaymentUtxo(row.id, row.status, row.address, row.required_amount)
+      getPaymentUtxo(row.id, row.address, row.required_amount)
         .then((checkPaymentUtxoResult) => {
           if (!checkPaymentUtxoResult.success) {
             return res.json({
@@ -358,13 +369,14 @@ app.post(
   },
 );
 
-// last step, to get the hex of the tx
+// Last step, to get the hex of the reveal tx
 app.post('/create-reveal', upload.single('file'), (req: Request, res: Response) => {
   try {
     const { inscriptionId, commitTxId, vout, amount } = req.body as CreateRevealBody;
 
     console.log('body', req.body);
     console.log('req.fil', req.file);
+    console.log('req.fil p', req.file?.path);
 
     if (!req.file || !inscriptionId || !commitTxId || vout === undefined || !amount) {
       return res.status(400).json({ error: 'Missing required parameters' });
@@ -387,21 +399,25 @@ app.post('/create-reveal', upload.single('file'), (req: Request, res: Response) 
     const revealTx = inscription.createRevealTx(commitTxId, parseInt(vout), parseInt(amount));
     updateInscription.run(commitTxId, revealTx, 'reveal_ready', Number(inscriptionId));
 
-    fs.unlinkSync(req.file.path);
+    const privKeyObj = getPrivateKey(inscriptionData.temp_private_key);
+    const pubkey = getPublicKeyFromWif(privKeyObj.wif);
 
     res.json({
       revealTxHex: revealTx,
       debug: {
         generatedAddress: inscription.address,
-        pubkey: hex.encode(secp256k1.getPublicKey(hex.decode(inscription.tempPrivateKey), true)),
+        pubkey,
         amount: parseInt(amount),
         fees: BigInt(parseInt(amount)) - DUST_LIMIT,
       },
     });
   } catch (error) {
     console.error('Error creating reveal:', error);
-    if (req.file?.path) fs.unlinkSync(req.file.path);
     res.status(500).json({ error: error instanceof Error ? error.message : 'Internal server error' });
+  } finally {
+    if (req.file?.path) {
+      fs.unlinkSync(req.file.path);
+    }
   }
 });
 

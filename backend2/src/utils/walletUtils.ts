@@ -3,68 +3,84 @@ import fs from 'fs';
 import * as ordinals from 'micro-ordinals';
 import * as btc from '@scure/btc-signer';
 import { secp256k1 } from '@noble/curves/secp256k1';
-import { base58 } from '@scure/base';
+import { base58, hex } from '@scure/base';
 import { sha256 } from '@noble/hashes/sha256';
 import * as bitcoin from 'bitcoinjs-lib';
 import * as helpers from './helpers';
+import ECPairFactory from 'ecpair';
+import * as tinysecp from 'tiny-secp256k1';
 import 'dotenv/config';
-
 import { IS_TESTNET } from '../config/network';
 
-const network = bitcoin.networks.testnet;
+const ECPair = ECPairFactory(tinysecp);
+export const network = IS_TESTNET ? bitcoin.networks.testnet : bitcoin.networks.bitcoin;
 
-interface Base58Check {
-  encode: (payload: Uint8Array) => string;
-  decode: (encoded: string) => Uint8Array;
-}
+bitcoin.initEccLib(tinysecp);
 
 // Type definitions
 interface KeyPair {
   raw: Uint8Array;
   wif: string;
+  hex: string;
 }
 
-export const base58check: Base58Check = {
-  encode: (payload: Uint8Array): string => {
-    const checksum = sha256(sha256(payload));
-    const combined = new Uint8Array(payload.length + 4);
-    combined.set(payload);
-    combined.set(checksum.subarray(0, 4), payload.length);
-    return base58.encode(combined);
-  },
+export function validateWIFNetwork(wifString: string, network: string): boolean {
+  const mainnetRegex = /^[5KL][1-9A-HJ-NP-Za-km-z]{50,51}$/;
+  const testnetRegex = /^[c][1-9A-HJ-NP-Za-km-z]{51}$/;
 
-  decode: (encoded: string): Uint8Array => {
-    const decoded = base58.decode(encoded);
-    const payload = decoded.subarray(0, -4);
-    const checksum = decoded.subarray(-4);
+  return network === 'mainnet' ? mainnetRegex.test(wifString) : testnetRegex.test(wifString);
+}
 
-    const verify = sha256(sha256(payload));
-    if (!verify.subarray(0, 4).every((v, i) => v === checksum[i])) {
-      throw new Error('Invalid checksum');
-    }
+// A helper function to simplify this code
+// const pubkey = hex.encode(secp256k1.getPublicKey(privKeyObj.raw, true));
+// creates a compressed pubkey
+export const getPublicKeyFromWif = (wif: string) => {
+  const network = IS_TESTNET ? 'testnet' : 'mainnet';
 
-    return payload;
-  },
+  const isValidWif = validateWIFNetwork(wif, network);
+
+  if (!isValidWif) {
+    throw new Error('not valid wif for ' + network);
+  }
+
+  const btcNetwork = IS_TESTNET ? bitcoin.networks.testnet : bitcoin.networks.bitcoin;
+
+  const keyPair = ECPair.fromWIF(wif, btcNetwork);
+  const publicKey = Buffer.from(keyPair.publicKey);
+
+  return {
+    raw: publicKey,
+    hex: hex.encode(publicKey),
+  };
 };
+
 // Testnet WIF Generation
-export function privateKeyToTestnetWIF(privateKey: Uint8Array): string {
+export function privateKeyToTestnetWIF(privateKey: Uint8Array, compressed = true): string {
   if (privateKey.length !== 32) {
     throw new Error('Invalid private key length');
   }
 
-  // 1 byte version + 32 bytes key + 1 byte compression flag = 34 bytes
   const version = new Uint8Array([0xef]);
-  const payload = new Uint8Array(34);
+
+  // 1 byte version + 32 bytes key + 1 byte compression flag = 34 bytes or 33 if not compressed
+  // const payload = new Uint8Array(34);
+  const payload = new Uint8Array(version.length + privateKey.length + (compressed ? 1 : 0));
 
   payload.set(version);
-  payload.set(privateKey, 1);
-  payload.set([0x01], 33); // Compression flag at index 33
+  // payload.set(privateKey, 1);
+  payload.set(privateKey, version.length); // it is 1 but better to do proper length
+
+  if (compressed) {
+    // payload.set([0x01], 33); // Compression flag at index 33
+    payload.set([0x01], version.length + privateKey.length);
+  }
 
   const checksum = sha256(sha256(payload)).subarray(0, 4);
   return base58.encode(new Uint8Array([...payload, ...checksum]));
 }
 
 // Mainnet WIF Generation
+// @TODO: add support for compression here , similartly to privateKeyToTestnetWIF
 function privateKeyToMainnetWIF(privateKey: Uint8Array): string {
   if (privateKey.length !== 32) {
     throw new Error('Invalid private key length');
@@ -86,6 +102,7 @@ function generateNetworkKeyPair(network: 'testnet' | 'mainnet'): KeyPair {
   return {
     raw: privateKey,
     wif: network === 'testnet' ? privateKeyToTestnetWIF(privateKey) : privateKeyToMainnetWIF(privateKey),
+    hex: hex.encode(privateKey),
   };
 }
 
@@ -136,19 +153,24 @@ export function getPrivateKey(existingPrivKey?: string | Uint8Array | null): Key
       }
 
       const expectedVersion = IS_TESTNET ? 0xef : 0x80;
+
       if (payload[0] !== expectedVersion) {
         throw new Error(`Invalid WIF version for ${IS_TESTNET ? 'testnet' : 'mainnet'}`);
       }
 
+      const raw = payload.subarray(1, 33);
+
       return {
-        raw: payload.subarray(1, 33),
+        raw,
         wif: existingPrivKey,
+        hex: hex.encode(raw),
       };
     }
 
     return {
       raw: existingPrivKey,
       wif: IS_TESTNET ? privateKeyToTestnetWIF(existingPrivKey) : privateKeyToMainnetWIF(existingPrivKey),
+      hex: hex.encode(existingPrivKey),
     };
   }
 
@@ -200,27 +222,3 @@ export async function getRevealPaymentAddressForWif(wif: string) {
     console.log('EEE err', error);
   }
 }
-
-// temporary keep it here
-// export async function getAddressDescriptorWithChecksum(address: string) {
-//   try {
-//     const baseDescriptor = `addr(${address})`;
-//
-//     const response = await rpcApi.getDescriptorChecksum(baseDescriptor);
-//     const { error, descriptorChecksum, success: isFetched } = response;
-//
-//     if (!isFetched || !descriptorChecksum) {
-//       return {
-//         success: false,
-//         details: `Could not fetch checksum.`,
-//         error,
-//       };
-//     }
-//
-//     const descriptorWithChecksum = `${baseDescriptor}#${descriptorChecksum}`;
-//
-//     return { descriptorWithChecksum, success: true };
-//   } catch (error) {
-//     console.error('Error getting address descriptor:', error instanceof Error ? error.message : error);
-//   }
-// }

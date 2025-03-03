@@ -97,27 +97,12 @@ export async function checkPaymentToAddress(
 
 export async function getPaymentUtxo(
   inscriptionId: number,
-  inscriptionStatus: string,
   address: string,
   amountInSats: number,
 ): Promise<{ success: true; result: AddressUtxo } | { success: false; error: ErrorDetails }> {
   console.log(`Checking paymentUtxo for ${address}`);
 
   const walletName = `insc_wallet_${inscriptionId}`;
-
-  if (inscriptionStatus === 'scanning') {
-    const errorDetails = getErrorDetails(new Error(`Wallet "${walletName}" is being scanning now. Try again later."`));
-    return { success: false, error: errorDetails };
-  }
-
-  const isPaid = inscriptionStatus === 'paid';
-
-  if (!isPaid) {
-    const errorDetails = getErrorDetails(
-      new Error(`Could not find payment utxo for address "${address}" in the requested wallet "${walletName}"`),
-    );
-    return { success: false, error: errorDetails };
-  }
 
   const utxoListResult = await listAddressUTXO(walletName, [address]);
 

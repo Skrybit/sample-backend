@@ -1,4 +1,3 @@
-// createInscription.ts
 import * as btc from '@scure/btc-signer';
 import * as ordinals from 'micro-ordinals';
 import { hex } from '@scure/base';
@@ -28,8 +27,8 @@ export function createInscription(
   existingPrivKey?: string | Uint8Array | null,
 ): InscriptionResult {
   const privKeyObj = getPrivateKey(existingPrivKey);
-  const { wif: privKeyHex } = privKeyObj;
-  const pubKey = getSchnorrPublicKey(privKeyHex);
+  const { wif: privKeyWif } = privKeyObj;
+  const pubKey = getSchnorrPublicKey(privKeyWif);
 
   const contentType = detectContentType(fileContent);
 

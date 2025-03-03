@@ -127,18 +127,9 @@ export async function getPaymentUtxo(
 
   const utxoList = utxoListResult.result;
 
-  console.log('utxoListResult.utxoList', utxoList);
-
-  console.log('address');
   const paymentUtxo = utxoList.find((utxo) => {
     const utxoAmountInSats = btcToSats(utxo.amount);
-    console.log('utxoAmountInSats, amountInSats', utxoAmountInSats, amountInSats);
     const isAmountOk = !!utxoAmountInSats && utxoAmountInSats >= amountInSats;
-
-    console.log('address', utxo.address === address);
-    console.log('amount', isAmountOk);
-    console.log('spendable', utxo.spendable === true);
-    console.log('confirmations', utxo.confirmations >= 5);
 
     return utxo.address === address && isAmountOk && utxo.spendable === true && utxo.confirmations >= 5;
   });

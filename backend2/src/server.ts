@@ -167,49 +167,7 @@ app.post('/create-commit', upload.single('file'), (req: Request, res: Response) 
   }
 });
 
-app.post('/create-reveal', upload.single('file'), (req: Request, res: Response) => {
-  try {
-    const { inscriptionId, commitTxId, vout, amount } = req.body as CreateRevealBody;
-
-    if (!req.file || !inscriptionId || !commitTxId || vout === undefined || !amount) {
-      return res.status(400).json({ error: 'Missing required parameters' });
-    }
-
-    const inscriptionData = getInscription.get(Number(inscriptionId)) as Inscription | undefined;
-
-    if (!inscriptionData) {
-      return res.status(404).json({ error: 'Inscription not found' });
-    }
-
-    const fileBuffer = fs.readFileSync(req.file.path);
-    const inscription = createInscription(
-      fileBuffer,
-      inscriptionData.fee_rate,
-      inscriptionData.recipient_address,
-      inscriptionData.temp_private_key,
-    );
-
-    const revealTx = inscription.createRevealTx(commitTxId, parseInt(vout), parseInt(amount));
-    updateInscription.run(commitTxId, revealTx, 'reveal_ready', Number(inscriptionId));
-
-    fs.unlinkSync(req.file.path);
-
-    res.json({
-      revealTxHex: revealTx,
-      debug: {
-        generatedAddress: inscription.address,
-        pubkey: hex.encode(secp256k1.getPublicKey(hex.decode(inscription.tempPrivateKey), true)),
-        amount: parseInt(amount),
-        fees: BigInt(parseInt(amount)) - DUST_LIMIT,
-      },
-    });
-  } catch (error) {
-    console.error('Error creating reveal:', error);
-    if (req.file?.path) fs.unlinkSync(req.file.path);
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Internal server error' });
-  }
-});
-
+// get particular inscription details
 app.get('/inscription/:id', (req: Request<{ id: string }>, res: Response, next: NextFunction) => {
   try {
     const row = getInscription.get(Number(req.params.id)) as Inscription | undefined;
@@ -231,6 +189,7 @@ app.get('/inscription/:id', (req: Request<{ id: string }>, res: Response, next: 
   }
 });
 
+// get all inscriptions by given sender address. could be used in an inial call from the landing page
 app.get(
   '/sender-inscriptions/:sender_address',
   (req: Request<{ sender_address: string }>, res: Response, next: NextFunction) => {
@@ -398,6 +357,53 @@ app.post(
     }
   },
 );
+
+// last step, to get the hex of the tx
+app.post('/create-reveal', upload.single('file'), (req: Request, res: Response) => {
+  try {
+    const { inscriptionId, commitTxId, vout, amount } = req.body as CreateRevealBody;
+
+    console.log('body', req.body);
+    console.log('req.fil', req.file);
+
+    if (!req.file || !inscriptionId || !commitTxId || vout === undefined || !amount) {
+      return res.status(400).json({ error: 'Missing required parameters' });
+    }
+
+    const inscriptionData = getInscription.get(Number(inscriptionId)) as Inscription | undefined;
+
+    if (!inscriptionData) {
+      return res.status(404).json({ error: 'Inscription not found' });
+    }
+
+    const fileBuffer = fs.readFileSync(req.file.path);
+    const inscription = createInscription(
+      fileBuffer,
+      inscriptionData.fee_rate,
+      inscriptionData.recipient_address,
+      inscriptionData.temp_private_key,
+    );
+
+    const revealTx = inscription.createRevealTx(commitTxId, parseInt(vout), parseInt(amount));
+    updateInscription.run(commitTxId, revealTx, 'reveal_ready', Number(inscriptionId));
+
+    fs.unlinkSync(req.file.path);
+
+    res.json({
+      revealTxHex: revealTx,
+      debug: {
+        generatedAddress: inscription.address,
+        pubkey: hex.encode(secp256k1.getPublicKey(hex.decode(inscription.tempPrivateKey), true)),
+        amount: parseInt(amount),
+        fees: BigInt(parseInt(amount)) - DUST_LIMIT,
+      },
+    });
+  } catch (error) {
+    console.error('Error creating reveal:', error);
+    if (req.file?.path) fs.unlinkSync(req.file.path);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Internal server error' });
+  }
+});
 
 // Server startup
 const PORT = Number(process.env.PORT) || 3001;

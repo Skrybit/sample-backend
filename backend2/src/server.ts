@@ -6,9 +6,10 @@ import fs from 'fs';
 import path from 'path';
 import multer from 'multer';
 import { createInscription } from './createInscription';
-import { checkPaymentToAddress } from './services/utils';
+import { checkPaymentToAddress, getPaymentUtxo } from './services/utils';
 import { DUST_LIMIT } from './config/network';
 import { getUTCTimestampInSec, timestampToDateString } from './utils/dateUtils';
+import { payments } from 'bitcoinjs-lib';
 
 console.log('__filename', __filename);
 console.log(' __dirname: %s', __dirname);
@@ -327,6 +328,70 @@ app.post(
         })
         .catch((error) =>
           res.status(400).json({ error: error instanceof Error ? error.message : 'Payment check failed' }),
+        );
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+// when payment is made we need to get tx id and vout to be able to call create-reveal
+app.post(
+  '/payment-utxo',
+  (req: Request<Record<string, never>, {}, PaymentStatusBody>, res: Response, next: NextFunction) => {
+    try {
+      const { address, required_amount, sender_address, id } = req.body;
+
+      if (!address || !required_amount || !sender_address || !id) {
+        return res.status(400).json({ error: 'Missing required data' });
+      }
+
+      const parsedId = parseInt(id);
+
+      if (isNaN(parsedId)) {
+        return res.status(400).json({ error: 'Invalid inscription ID' });
+      }
+
+      const row = getInscription.get(parsedId) as Inscription | undefined;
+
+      if (!row) {
+        return res.status(404).json({ error: 'Inscription not found' });
+      }
+
+      if (row.sender_address !== sender_address.trim()) {
+        return res.status(400).json({ error: 'Sender address mismatch' });
+      }
+
+      if (row.required_amount !== Number(required_amount)) {
+        return res.status(400).json({ error: 'Amount mismatch' });
+      }
+
+      if (row.address !== address.trim()) {
+        return res.status(400).json({ error: 'Address mismatch' });
+      }
+
+      getPaymentUtxo(row.id, row.status, row.address, row.required_amount)
+        .then((checkPaymentUtxoResult) => {
+          if (!checkPaymentUtxoResult.success) {
+            return res.json({
+              paymentUtxo: null,
+              id: row.id,
+              error_details: checkPaymentUtxoResult.error,
+            });
+          }
+
+          const { result } = checkPaymentUtxoResult;
+
+          return res.json({
+            paymentUtxo: result,
+            id: row.id,
+            address: row.address,
+            amount: row.required_amount,
+            sender_address: row.sender_address,
+          });
+        })
+        .catch((error) =>
+          res.status(400).json({ error: error instanceof Error ? error.message : 'Payment utxo check failed' }),
         );
     } catch (error) {
       next(error);

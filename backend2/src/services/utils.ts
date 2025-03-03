@@ -1,5 +1,5 @@
 import { RunResult } from 'better-sqlite3';
-import { btcToSats } from '../utils/helpers';
+import { btcToSats, satsToBtc } from '../utils/helpers';
 import {
   getErrorDetails,
   listAddressUTXO,
@@ -8,6 +8,7 @@ import {
   rescanBlockchain,
   getBlockAtTimeApproximate,
   type ErrorDetails,
+  type AddressUtxo,
 } from './rpcApi';
 
 type UpdateInscriptionPaymentFn = (status: string, id: number) => RunResult;
@@ -19,11 +20,11 @@ export async function checkPaymentToAddress(
   address: string,
   amountInSats: number,
   updateInscriptionPayment: UpdateInscriptionPaymentFn,
-): Promise<{ success: true; result: { isPaid: boolean } } | { success: false; error: ErrorDetails }> {
+): Promise<{ success: true; result: boolean } | { success: false; error: ErrorDetails }> {
   console.log(`Checking ${address} for ${amountInSats}`);
 
   if (inscriptionStatus === 'paid') {
-    return { success: true, result: { isPaid: true } };
+    return { success: true, result: true };
   }
 
   const walletName = `insc_wallet_${inscriptionId}`;
@@ -62,30 +63,10 @@ export async function checkPaymentToAddress(
   const isPaid = !!balanceInSats && balanceInSats >= amountInSats;
 
   if (isPaid) {
-    const utxoListResult = await listAddressUTXO(walletName, [properAddressItem.address]);
-
-    if (!utxoListResult.success) {
-      return { success: false, error: utxoListResult.error };
-    }
-    const utxoList = utxoListResult.result;
-
-    const paymentUtxo = utxoList.find(
-      (utxo) =>
-        utxo.address === address && utxo.amount === balance && utxo.spendable === true && utxo.confirmations >= 5,
-    );
-
-    // @TODO: we need to add logic to find paymentUtxo, but not here
-    if (!paymentUtxo) {
-      return {
-        success: false,
-        error: getErrorDetails(new Error('could not find a paymentUtxo with required criterias')),
-      };
-    }
-
     if (inscriptionStatus === 'pending') {
       updateInscriptionPayment('paid', inscriptionId);
     }
-    return { success: true, result: { isPaid } };
+    return { success: true, result: isPaid };
   }
 
   /// block begin B - we now finding the block on the fly , but we can modify create inscription to save the current block
@@ -111,5 +92,63 @@ export async function checkPaymentToAddress(
   updateInscriptionPayment(inscriptionStatus, inscriptionId);
   /// block end S
 
-  return { success: true, result: { isPaid: false } };
+  return { success: true, result: false };
+}
+
+export async function getPaymentUtxo(
+  inscriptionId: number,
+  inscriptionStatus: string,
+  address: string,
+  amountInSats: number,
+): Promise<{ success: true; result: AddressUtxo } | { success: false; error: ErrorDetails }> {
+  console.log(`Checking paymentUtxo for ${address}`);
+
+  const walletName = `insc_wallet_${inscriptionId}`;
+
+  if (inscriptionStatus === 'scanning') {
+    const errorDetails = getErrorDetails(new Error(`Wallet "${walletName}" is being scanning now. Try again later."`));
+    return { success: false, error: errorDetails };
+  }
+
+  const isPaid = inscriptionStatus === 'paid';
+
+  if (!isPaid) {
+    const errorDetails = getErrorDetails(
+      new Error(`Could not find payment utxo for address "${address}" in the requested wallet "${walletName}"`),
+    );
+    return { success: false, error: errorDetails };
+  }
+
+  const utxoListResult = await listAddressUTXO(walletName, [address]);
+
+  if (!utxoListResult.success) {
+    return { success: false, error: utxoListResult.error };
+  }
+
+  const utxoList = utxoListResult.result;
+
+  console.log('utxoListResult.utxoList', utxoList);
+
+  console.log('address');
+  const paymentUtxo = utxoList.find((utxo) => {
+    const utxoAmountInSats = btcToSats(utxo.amount);
+    console.log('utxoAmountInSats, amountInSats', utxoAmountInSats, amountInSats);
+    const isAmountOk = !!utxoAmountInSats && utxoAmountInSats >= amountInSats;
+
+    console.log('address', utxo.address === address);
+    console.log('amount', isAmountOk);
+    console.log('spendable', utxo.spendable === true);
+    console.log('confirmations', utxo.confirmations >= 5);
+
+    return utxo.address === address && isAmountOk && utxo.spendable === true && utxo.confirmations >= 5;
+  });
+
+  if (!paymentUtxo) {
+    return {
+      success: false,
+      error: getErrorDetails(new Error('could not find a paymentUtxo with required criterias')),
+    };
+  }
+
+  return { success: true, result: paymentUtxo };
 }

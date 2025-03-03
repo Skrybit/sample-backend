@@ -123,6 +123,8 @@ type GetBlockAtTimeApproximateResponse =
   | { success: true; result: BlockHeader }
   | { success: false; error: ErrorDetails };
 
+type BroadcastRevealTransactionResponse = { result: string; success: true } | { success: false; error: ErrorDetails };
+
 // export function isSuccessResponse(
 //   response: WalletAddressResponse
 // ): response is { success: boolean; result: WalletAddress[]; originalResponse: RpcRes<WalletAddressResponse[]> } {
@@ -901,4 +903,38 @@ export async function getBlockAtTimeApproximate(
   console.log('✅ bestBlock confirmed    ', bestBlock);
 
   return { success: true, result: bestBlock };
+}
+
+export async function broadcastRevealTransaction(txHex: string): Promise<BroadcastRevealTransactionResponse> {
+  try {
+    const response = await axios.post(
+      RPC_URL,
+      {
+        jsonrpc: '1.0',
+        id: 'tx_broadcast',
+        method: 'sendrawtransaction',
+        params: [txHex],
+      },
+      {
+        headers: getAuthHeaders(),
+        timeout: RPC_TIMEOUT,
+      },
+    );
+
+    console.log('response.data broadcastRevealTransaction', response.data);
+    return {
+      success: true,
+      result: response?.data?.result || 'n/a',
+    };
+  } catch (error) {
+    console.log('response error broadcastRevealTransaction ', error);
+    if (!axios.isAxiosError(error)) {
+      handleNonRpcError(error);
+    }
+
+    return {
+      success: false,
+      error: getErrorDetails(error),
+    };
+  }
 }

@@ -1,12 +1,17 @@
 import { RunResult } from 'better-sqlite3';
-import { btcToSats, satsToBtc } from '../utils/helpers';
+import { btcToSats } from '../utils/helpers';
 import {
   getErrorDetails,
   listAddressUTXO,
   listWalletAddresses,
+  loadWallet,
+  importDescriptor,
+  getDescriptorChecksum,
   getBalance,
   rescanBlockchain,
   getBlockAtTimeApproximate,
+  createWallet,
+  broadcastRevealTransaction,
   type ErrorDetails,
   type AddressUtxo,
 } from './rpcApi';
@@ -127,4 +132,82 @@ export async function getPaymentUtxo(
   }
 
   return { success: true, result: paymentUtxo };
+}
+
+export async function broadcastTx(
+  inscriptionId: number,
+  givenTxHex: string,
+  revealTxHex?: string,
+): Promise<{ success: true; result: string } | { success: false; error: ErrorDetails }> {
+  if (revealTxHex !== givenTxHex) {
+    return {
+      success: false,
+      error: getErrorDetails(
+        new Error('given tx does not match the revealTxHex of the inscription with an id' + inscriptionId),
+      ),
+    };
+  }
+  const broadcastResult = await broadcastRevealTransaction(givenTxHex);
+
+  console.log('broadcastResult u', broadcastResult);
+
+  if (!broadcastResult.success) {
+    return { success: false, error: broadcastResult.error };
+  }
+
+  return { success: true, result: broadcastResult.result };
+}
+
+export async function getAddressDescriptorWithChecksum(
+  address: string,
+): Promise<{ success: true; result: string } | { success: false; error: ErrorDetails }> {
+  const baseDescriptor = `addr(${address})`;
+
+  const getDescriptorChecksumResult = await getDescriptorChecksum(baseDescriptor);
+
+  if (!getDescriptorChecksumResult.success) {
+    return { success: false, error: getDescriptorChecksumResult.error };
+  }
+
+  const descriptorWithChecksum = `${baseDescriptor}#${getDescriptorChecksumResult.result}`;
+
+  return { result: descriptorWithChecksum, success: true };
+}
+
+export async function createWalletAndAddressDescriptor(
+  inscriptionId: number | bigint,
+  revealAddress: string,
+): Promise<{ success: true; result: boolean } | { success: false; error: ErrorDetails }> {
+  const walletName = `insc_wallet_${inscriptionId}`;
+
+  console.log(`Creating walletName "${walletName}" for "${revealAddress}"`);
+
+  const createWalletResult = await createWallet(walletName, true);
+
+  if (!createWalletResult.success) {
+    return { success: false, error: createWalletResult.error };
+  }
+
+  const loadWalletResult = await createWallet(walletName, true);
+
+  if (!loadWalletResult.success) {
+    return { success: false, error: loadWalletResult.error };
+  }
+
+  const descriptorToImportResult = await getAddressDescriptorWithChecksum(revealAddress);
+
+  if (!descriptorToImportResult.success) {
+    return { success: false, error: descriptorToImportResult.error };
+  }
+
+  const importResult = await importDescriptor(descriptorToImportResult.result, walletName);
+
+  if (!importResult.success) {
+    return { success: false, error: importResult.error };
+  }
+
+  return {
+    success: true,
+    result: importResult.result,
+  };
 }

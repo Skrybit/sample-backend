@@ -1,15 +1,14 @@
 import express, { Request, Application, Response, NextFunction } from 'express';
 import Database from 'better-sqlite3';
-import { hex } from '@scure/base';
-import { secp256k1 } from '@noble/curves/secp256k1';
 import fs from 'fs';
 import path from 'path';
 import multer from 'multer';
 import { createInscription } from './createInscription';
 import { DUST_LIMIT } from './config/network';
 import { getPublicKeyFromWif, getPrivateKey } from './utils/walletUtils';
-import { checkPaymentToAddress, getPaymentUtxo } from './services/utils';
+import { checkPaymentToAddress, getPaymentUtxo, broadcastTx, createWalletAndAddressDescriptor } from './services/utils';
 import { getUTCTimestampInSec, timestampToDateString } from './utils/dateUtils';
+import { address } from 'bitcoinjs-lib';
 
 console.log('__filename', __filename);
 console.log(' __dirname: %s', __dirname);
@@ -58,6 +57,11 @@ interface PaymentStatusBody {
   address: string;
   required_amount: string;
   sender_address: string;
+  id: string;
+}
+
+interface BroadcastRevealTxBody {
+  txHex: string;
   id: string;
 }
 
@@ -160,20 +164,55 @@ app.post('/create-commit', upload.single('file'), (req: Request, res: Response) 
 
     console.log('req.file.path commit', req.file?.path);
 
-    fs.unlinkSync(req.file.path);
+    const lastInsertRowid = result.lastInsertRowid;
 
-    res.json({
-      inscriptionId: result.lastInsertRowid,
-      fileSize: inscription.fileSize,
-      address: inscription.address,
-      recipientAddress,
-      senderAddress,
-      requiredAmount: inscription.requiredAmount,
-    });
+    createWalletAndAddressDescriptor(lastInsertRowid, inscription.address)
+      .then((broadcastResult) => {
+        if (!broadcastResult.success) {
+          return res.json({
+            result: null,
+            address: inscription.address,
+            error_details: broadcastResult.error,
+          });
+        }
+
+        const { result } = broadcastResult;
+
+        return res.json({
+          inscriptionId: lastInsertRowid,
+          fileSize: inscription.fileSize,
+          address: inscription.address,
+          recipientAddress,
+          senderAddress,
+          requiredAmount: inscription.requiredAmount,
+          createResult: result,
+        });
+        // return res.json({
+        //   createResult: result,
+        //   address: inscription.address,
+        // });
+      })
+      .catch((error) =>
+        res.status(400).json({ error: error instanceof Error ? error.message : 'Wallet create failed' }),
+      );
+
+    // fs.unlinkSync(req.file.path);
+
+    // res.json({
+    //   inscriptionId: result.lastInsertRowid,
+    //   fileSize: inscription.fileSize,
+    //   address: inscription.address,
+    //   recipientAddress,
+    //   senderAddress,
+    //   requiredAmount: inscription.requiredAmount,
+    // });
   } catch (error) {
     console.error('Error creating commit:', error);
-    if (req.file?.path) fs.unlinkSync(req.file.path);
     res.status(500).json({ error: error instanceof Error ? error.message : 'Internal server error' });
+  } finally {
+    if (req.file?.path) {
+      fs.unlinkSync(req.file.path);
+    }
   }
 });
 
@@ -420,6 +459,54 @@ app.post('/create-reveal', upload.single('file'), (req: Request, res: Response) 
     }
   }
 });
+
+app.post(
+  '/broadcast-reveal-tx',
+  (req: Request<Record<string, never>, {}, BroadcastRevealTxBody>, res: Response, next: NextFunction) => {
+    try {
+      const { txHex, id } = req.body;
+
+      if (!txHex || !id) {
+        return res.status(400).json({ error: 'Missing required data' });
+      }
+
+      const parsedId = parseInt(id);
+
+      if (isNaN(parsedId)) {
+        return res.status(400).json({ error: 'Invalid inscription ID' });
+      }
+
+      const row = getInscription.get(parsedId) as Inscription | undefined;
+
+      if (!row) {
+        return res.status(404).json({ error: 'Inscription not found' });
+      }
+
+      broadcastTx(row.id, txHex, row.reveal_tx_hex)
+        .then((broadcastResult) => {
+          if (!broadcastResult.success) {
+            return res.json({
+              txId: null,
+              id: row.id,
+              error_details: broadcastResult.error,
+            });
+          }
+
+          const { result } = broadcastResult;
+
+          return res.json({
+            txId: result,
+            id: row.id,
+          });
+        })
+        .catch((error) =>
+          res.status(400).json({ error: error instanceof Error ? error.message : 'Payment utxo check failed' }),
+        );
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 // Server startup
 const PORT = Number(process.env.PORT) || 3001;

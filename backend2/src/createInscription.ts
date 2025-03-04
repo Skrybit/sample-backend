@@ -51,6 +51,8 @@ export function createInscription(
   const totalSize = witnessSize + 200; // Add padding for transaction overhead
 
   const feeInSats = Math.ceil((totalSize * feeRate) / 4);
+  console.log('feeInSats', feeInSats);
+
   const fee = BigInt(feeInSats);
 
   function createRevealTx(txid: string, index: number, amount: bigint | number): string {

@@ -439,7 +439,7 @@ app.post('/create-reveal', upload.single('file'), (req: Request, res: Response) 
       revealTxHex: revealTx,
       debug: {
         generatedAddress: inscription.address,
-        pubkey,
+        pubkey: pubkey.hex,
         amount: parseInt(amount),
         fees: BigInt(parseInt(amount)) - DUST_LIMIT,
       },

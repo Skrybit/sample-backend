@@ -12,6 +12,84 @@ import { getUTCTimestampInSec, timestampToDateString } from './utils/dateUtils';
 console.log('__filename', __filename);
 console.log(' __dirname: %s', __dirname);
 
+// Server startup
+const PORT = Number(process.env.PORT) || 3001;
+
+import swaggerJsdoc from 'swagger-jsdoc';
+import swaggerUi from 'swagger-ui-express';
+
+const swaggerOptions = {
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'Ordinals Inscription API',
+      version: '1.0.0',
+      description: 'API for managing Bitcoin ordinal inscriptions',
+    },
+    servers: [
+      {
+        url: `http://localhost:${PORT}`,
+        description: 'Development server',
+      },
+    ],
+    tags: [
+      { name: 'Inscriptions', description: 'Inscription management' },
+      { name: 'Payments', description: 'Payment verification' },
+      { name: 'Transactions', description: 'Transaction operations' },
+    ],
+    components: {
+      schemas: {
+        Inscription: {
+          type: 'object',
+          properties: {
+            id: { type: 'integer' },
+            temp_private_key: { type: 'string' },
+            address: { type: 'string' },
+            required_amount: { type: 'integer' },
+            file_size: { type: 'integer' },
+            recipient_address: { type: 'string' },
+            sender_address: { type: 'string' },
+            fee_rate: { type: 'number', format: 'float' },
+            created_at: { type: 'string', format: 'date-time' },
+            commit_tx_id: { type: 'string' },
+            reveal_tx_hex: { type: 'string' },
+            status: {
+              type: 'string',
+              enum: ['pending', 'paid', 'reveal_ready', 'completed'],
+            },
+          },
+        },
+        PaymentStatus: {
+          type: 'object',
+          properties: {
+            is_paid: { type: 'boolean' },
+            id: { type: 'integer' },
+            address: { type: 'string' },
+            amount: { type: 'integer' },
+            sender_address: { type: 'string' },
+          },
+        },
+        PaymentUtxo: {
+          type: 'object',
+          properties: {
+            txid: { type: 'string' },
+            vout: { type: 'integer' },
+            value: { type: 'integer' },
+          },
+        },
+        ErrorResponse: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            error_details: { type: 'string' },
+          },
+        },
+      },
+    },
+  },
+  apis: [path.join(__dirname, '**/*.ts')], // Changed this line
+};
+
 // Resolve DB path relative to project root
 const DB_PATH = path.resolve(__dirname, '../ordinals.db');
 
@@ -68,6 +146,9 @@ interface BroadcastRevealTxBody {
 const app: Application = express();
 
 app.use(express.json());
+
+const swaggerSpec = swaggerJsdoc(swaggerOptions);
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // bigint parse middleware
 app.use((_req, res, next) => {
@@ -135,6 +216,55 @@ const updateInscriptionPayment = db.prepare<[string, number]>(`
   WHERE id = ?
 `);
 
+/**
+ * @swagger
+ * /create-commit:
+ *    post:
+ *     tags: [Inscriptions]
+ *     summary: Create a new commit transaction for inscription
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *               recipientAddress:
+ *                 type: string
+ *               feeRate:
+ *                 type: string
+ *               senderAddress:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Commit transaction created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 inscriptionId:
+ *                   type: integer
+ *                 fileSize:
+ *                   type: integer
+ *                 address:
+ *                   type: string
+ *                 recipientAddress:
+ *                   type: string
+ *                 senderAddress:
+ *                   type: string
+ *                 requiredAmount:
+ *                   type: integer
+ *       400:
+ *         description: Invalid input
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 app.post('/create-commit', upload.single('file'), (req: Request, res: Response) => {
   try {
     const { recipientAddress, feeRate, senderAddress } = req.body as CreateCommitBody;
@@ -190,15 +320,6 @@ app.post('/create-commit', upload.single('file'), (req: Request, res: Response) 
       .catch((error) =>
         res.status(400).json({ error: error instanceof Error ? error.message : 'Wallet create failed' }),
       );
-
-    // res.json({
-    //   inscriptionId: result.lastInsertRowid,
-    //   fileSize: inscription.fileSize,
-    //   address: inscription.address,
-    //   recipientAddress,
-    //   senderAddress,
-    //   requiredAmount: inscription.requiredAmount,
-    // });
   } catch (error) {
     console.error('Error creating commit:', error);
     res.status(500).json({ error: error instanceof Error ? error.message : 'Internal server error' });
@@ -209,7 +330,32 @@ app.post('/create-commit', upload.single('file'), (req: Request, res: Response) 
   }
 });
 
-// Get particular inscription details
+/**
+ * @swagger
+ * /inscription/{id}:
+ *   get:
+ *     tags: [Inscriptions]
+ *     summary: Get inscription details by ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: integer
+ *         required: true
+ *     responses:
+ *       200:
+ *         description: Inscription details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Inscription'
+ *       404:
+ *         description: Inscription not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 app.get('/inscription/:id', (req: Request<{ id: string }>, res: Response, next: NextFunction) => {
   try {
     const row = getInscription.get(Number(req.params.id)) as Inscription | undefined;
@@ -231,7 +377,34 @@ app.get('/inscription/:id', (req: Request<{ id: string }>, res: Response, next: 
   }
 });
 
-// Get all inscriptions by given sender address. could be used in an inial call from the landing page
+/**
+ * @swagger
+ * /sender-inscriptions/{sender_address}:
+ *   get:
+ *     tags: [Inscriptions]
+ *     summary: Get all inscriptions by sender address
+ *     parameters:
+ *       - in: path
+ *         name: sender_address
+ *         schema:
+ *           type: string
+ *         required: true
+ *     responses:
+ *       200:
+ *         description: List of inscriptions
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Inscription'
+ *       404:
+ *         description: No inscriptions found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 app.get(
   '/sender-inscriptions/:sender_address',
   (req: Request<{ sender_address: string }>, res: Response, next: NextFunction) => {
@@ -260,9 +433,46 @@ app.get(
   },
 );
 
-// Check if payment was made to the inscription address with required amount
-// could be triggered by frontend , when user loads the app and if the inscription is paid,
-// it updates its status withing the updateInscriptionPayment method
+/**
+ * @swagger
+ * /payment-status:
+ *   post:
+ *     tags: [Payments]
+ *     summary: Check payment status for an inscription
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - address
+ *               - required_amount
+ *               - sender_address
+ *               - id
+ *             properties:
+ *               address:
+ *                 type: string
+ *               required_amount:
+ *                 type: string
+ *               sender_address:
+ *                 type: string
+ *               id:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Payment status
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PaymentStatus'
+ *       400:
+ *         description: Invalid input
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 app.post(
   '/payment-status',
   (req: Request<Record<string, never>, {}, PaymentStatusBody>, res: Response, next: NextFunction) => {
@@ -336,8 +546,57 @@ app.post(
   },
 );
 
-// Returns an utxo that was sent to the inscription address (paypent proof)
-// so tx and vout could be used to create reveal
+/**
+ * @swagger
+ * /payment-utxo:
+ *   post:
+ *     tags: [Payments]
+ *     summary: Get payment UTXO details
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - address
+ *               - required_amount
+ *               - sender_address
+ *               - id
+ *             properties:
+ *               address:
+ *                 type: string
+ *               required_amount:
+ *                 type: string
+ *               sender_address:
+ *                 type: string
+ *               id:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: UTXO details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 paymentUtxo:
+ *                   $ref: '#/components/schemas/PaymentUtxo'
+ *                 id:
+ *                   type: integer
+ *                 address:
+ *                   type: string
+ *                 amount:
+ *                   type: integer
+ *                 sender_address:
+ *                   type: string
+ *       400:
+ *         description: Invalid input
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 app.post(
   '/payment-utxo',
   (req: Request<Record<string, never>, {}, PaymentStatusBody>, res: Response, next: NextFunction) => {
@@ -401,7 +660,56 @@ app.post(
   },
 );
 
-// Last step, to get the hex of the reveal tx
+/**
+ * @swagger
+ * /create-reveal:
+ *    post:
+ *     tags: [Inscriptions]
+ *     summary: Create a new commit transaction for inscription
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *               recipientAddress:
+ *                 type: string
+ *               feeRate:
+ *                 type: string
+ *               senderAddress:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Reveal transaction created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 revealTxHex:
+ *                   type: string
+ *                 debug:
+ *                   type: object
+ *                   properties:
+ *                     generatedAddress:
+ *                       type: string
+ *                     pubkey:
+ *                       type: string
+ *                     amount:
+ *                       type: integer
+ *                     fees:
+ *                       type: integer
+ *       400:
+ *         description: Invalid input
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 app.post('/create-reveal', upload.single('file'), (req: Request, res: Response) => {
   try {
     const { inscriptionId, commitTxId, vout, amount } = req.body as CreateRevealBody;
@@ -453,6 +761,45 @@ app.post('/create-reveal', upload.single('file'), (req: Request, res: Response) 
   }
 });
 
+/**
+ * @swagger
+ * /broadcast-reveal-tx:
+ *   post:
+ *     tags: [Transactions]
+ *     summary: Broadcast reveal transaction
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - txHex
+ *               - id
+ *             properties:
+ *               txHex:
+ *                 type: string
+ *               id:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Transaction broadcast result
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 txId:
+ *                   type: string
+ *                 id:
+ *                   type: integer
+ *       400:
+ *         description: Invalid input
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 app.post(
   '/broadcast-reveal-tx',
   (req: Request<Record<string, never>, {}, BroadcastRevealTxBody>, res: Response, next: NextFunction) => {
@@ -500,9 +847,6 @@ app.post(
     }
   },
 );
-
-// Server startup
-const PORT = Number(process.env.PORT) || 3001;
 
 app
   .listen(PORT, () => {

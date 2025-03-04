@@ -8,7 +8,6 @@ import { DUST_LIMIT } from './config/network';
 import { getPublicKeyFromWif, getPrivateKey } from './utils/walletUtils';
 import { checkPaymentToAddress, getPaymentUtxo, broadcastTx, createWalletAndAddressDescriptor } from './services/utils';
 import { getUTCTimestampInSec, timestampToDateString } from './utils/dateUtils';
-import { address } from 'bitcoinjs-lib';
 
 console.log('__filename', __filename);
 console.log(' __dirname: %s', __dirname);
@@ -71,7 +70,7 @@ const app: Application = express();
 app.use(express.json());
 
 // bigint parse middleware
-app.use((req, res, next) => {
+app.use((_req, res, next) => {
   const originalJson = res.json;
   res.json = function (obj) {
     const sanitized = JSON.parse(

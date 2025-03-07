@@ -1,0 +1,354 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Ordinals Inscription API",
+    "version": "1.0.0",
+    "description": "API for managing Bitcoin ordinal inscriptions"
+  },
+  "paths": {
+    "/create-commit": {
+      "post": {
+        "tags": ["Inscriptions"],
+        "summary": "Create a new commit transaction for inscription",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": { "type": "string", "format": "binary" },
+                  "recipientAddress": { "type": "string" },
+                  "feeRate": { "type": "string" },
+                  "senderAddress": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Commit transaction created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "inscriptionId": { "type": "integer" },
+                    "fileSize": { "type": "integer" },
+                    "address": { "type": "string" },
+                    "recipientAddress": { "type": "string" },
+                    "senderAddress": { "type": "string" },
+                    "requiredAmount": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/inscription/{id}": {
+      "get": {
+        "tags": ["Inscriptions"],
+        "summary": "Get inscription details by ID",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": { "type": "integer" },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Inscription details",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Inscription" }
+              }
+            }
+          },
+          "404": {
+            "description": "Inscription not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sender-inscriptions/{sender_address}": {
+      "get": {
+        "tags": ["Inscriptions"],
+        "summary": "Get all inscriptions by sender address",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sender_address",
+            "schema": { "type": "string" },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of inscriptions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Inscription" }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No inscriptions found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/payment-status": {
+      "post": {
+        "tags": ["Payments"],
+        "summary": "Check payment status for an inscription",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["address", "required_amount", "sender_address", "id"],
+                "properties": {
+                  "address": { "type": "string" },
+                  "required_amount": { "type": "string" },
+                  "sender_address": { "type": "string" },
+                  "id": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Payment status",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PaymentStatus" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/payment-utxo": {
+      "post": {
+        "tags": ["Payments"],
+        "summary": "Get payment UTXO details",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["address", "required_amount", "sender_address", "id"],
+                "properties": {
+                  "address": { "type": "string" },
+                  "required_amount": { "type": "string" },
+                  "sender_address": { "type": "string" },
+                  "id": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "UTXO details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "paymentUtxo": { "$ref": "#/components/schemas/PaymentUtxo" },
+                    "id": { "type": "integer" },
+                    "address": { "type": "string" },
+                    "amount": { "type": "integer" },
+                    "sender_address": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/create-reveal": {
+      "post": {
+        "tags": ["Inscriptions"],
+        "summary": "Create a new commit transaction for inscription",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": { "type": "string", "format": "binary" },
+                  "recipientAddress": { "type": "string" },
+                  "feeRate": { "type": "string" },
+                  "senderAddress": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reveal transaction created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "revealTxHex": { "type": "string" },
+                    "debug": {
+                      "type": "object",
+                      "properties": {
+                        "generatedAddress": { "type": "string" },
+                        "pubkey": { "type": "string" },
+                        "amount": { "type": "integer" },
+                        "fees": { "type": "integer" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/broadcast-reveal-tx": {
+      "post": {
+        "tags": ["Transactions"],
+        "summary": "Broadcast reveal transaction",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["txHex", "id"],
+                "properties": {
+                  "txHex": { "type": "string" },
+                  "id": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transaction broadcast result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "txId": { "type": "string" },
+                    "id": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string" },
+          "message": { "type": "string" }
+        }
+      },
+      "Inscription": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "status": { "type": "string" },
+          "txHash": { "type": "string" },
+          "fileSize": { "type": "integer" },
+          "address": { "type": "string" },
+          "requiredAmount": { "type": "integer" }
+        }
+      },
+      "PaymentStatus": {
+        "type": "object",
+        "properties": {
+          "confirmed": { "type": "boolean" },
+          "confirmations": { "type": "integer" }
+        }
+      },
+      "PaymentUtxo": {
+        "type": "object",
+        "properties": {
+          "txid": { "type": "string" },
+          "vout": { "type": "integer" },
+          "value": { "type": "integer" }
+        }
+      }
+    }
+  }
+}

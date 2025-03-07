@@ -87,7 +87,7 @@ const swaggerOptions = {
       },
     },
   },
-  apis: [path.join(__dirname, '**/*.ts')], // Changed this line
+  apis: [path.join(__dirname, '**/*.{ts,js}')], // Updated line
 };
 
 // Resolve DB path relative to project root

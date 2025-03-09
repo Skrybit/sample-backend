@@ -121,7 +121,7 @@ export async function getPaymentUtxo(
     const utxoAmountInSats = btcToSats(utxo.amount);
     const isAmountOk = !!utxoAmountInSats && utxoAmountInSats >= amountInSats;
 
-    return utxo.address === address && isAmountOk && utxo.spendable === true && utxo.confirmations >= 5;
+    return utxo.address === address && isAmountOk && utxo.spendable === true && utxo.confirmations >= 1;
   });
 
   if (!paymentUtxo) {

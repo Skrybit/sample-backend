@@ -18,9 +18,9 @@ const SENDER_ADDRESS = process.env.SENDER_ADDRESS || '';
 
 // if we hard code it, it will be rejected
 const FEE_RATE = 1.5;
-// const INSCRIBE_FILE = 'test.txt'; // must be in the same directory
+const INSCRIBE_FILE = 'test.txt'; // must be in the same directory
 // const INSCRIBE_FILE = 'my_btc.webp'; // must be in the same directory
-const INSCRIBE_FILE = 'ordinals.png'; // must be in the same directory
+// const INSCRIBE_FILE = 'ordinals.png'; // must be in the same directory
 
 const createCommitStep = async () => {
   // 1. Create commit inscription
@@ -97,7 +97,7 @@ const getSenderInscriptionsStep = async () => {
 
 const checkInscriptionStatusStep = async () => {
   // 3. Check inscription status and details
-  const inscriptionId = 38; // this id was paid
+  const inscriptionId = 44;
 
   const inscriptionStatus = await getInscriptionStatus(inscriptionId);
   console.log('inscriptionStatus ', inscriptionStatus);
@@ -136,8 +136,8 @@ const checkInscriptionStatusStep = async () => {
 const checkInscriptionPaymentStep = async () => {
   // 4. Check inscription payment (would trigger status update on remote end if paid)
 
-  const address = 'tb1pve4cpn4ewscr7mzdp9zw4x5u67xkftkvx5zur4zwxvshw5r8vc0suz4zgm'; //
-  const id = '38';
+  const address = 'bc1plmxjy6yx993hs6h9vu2z36agt82m77pmkxfg30h46282pw8gn66sx4z32d';
+  const id = '44';
   const requiredAmount = '155';
 
   const senderAddress = SENDER_ADDRESS;
@@ -176,8 +176,8 @@ const getInscriptionUtxoStep = async () => {
   // 5. Check inscription payment UTXO
   const senderAddress = SENDER_ADDRESS;
 
-  const address = 'tb1pve4cpn4ewscr7mzdp9zw4x5u67xkftkvx5zur4zwxvshw5r8vc0suz4zgm'; //
-  const id = '38';
+  const address = 'bc1plmxjy6yx993hs6h9vu2z36agt82m77pmkxfg30h46282pw8gn66sx4z32d';
+  const id = '44';
   const requiredAmount = '155';
 
   const paymentUtxoResponse = await getInscriptionPaymentUtxo(address, id, senderAddress, requiredAmount);
@@ -215,10 +215,10 @@ const getInscriptionRevealDetailsStep = async () => {
   // 6. After funding and confirmation, create reveal
   const vout = 0;
   // const amount = 0.0000015; // 150
-  const amount = 0.00001; // 1_000
+  const amount = 0.00006; // 1_000
 
-  const id = '38';
-  const paymentTxid = '8c6f77b918dfbdcc82e1100ab091c05c46331d30a24463e807cf0e2b26826506';
+  const id = '44';
+  const paymentTxid = '46b4fe368f89c294d1463bc3ec5a21901d14c215e8b6a82f022ac3c107661f2b';
 
   const utxoAmountInSats = btcToSats(amount);
 
@@ -251,9 +251,9 @@ const getInscriptionRevealDetailsStep = async () => {
 
 const broadcastRevealTxHexStep = async () => {
   // 7. Broadcast reveal transaction
-  const id = '38';
+  const id = '44';
   const revealTxHex =
-    '02000000000101066582262b0ecf07e86344a2301d33465cc091b00a10e182ccbddf18b9776f8c0000000000ffffffff014d0300000000000016001452ac1f4f8ae669e8790d7b0054c9b8a3f356d2f20340ce38658419dc6e41018014af2f9ccf342d9f61d39204035652dc3b5799d32feaab5d8452796be65f39724cd7428c8742353f2548ce00161e164a4d2261100640b7201d0d4c59583fd9e83fe3fd7658089ff7323a6cf53d3098d9bb86b90115af61e3ac0063036f7264010118746578742f706c61696e3b636861727365743d7574662d38004c70686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a6821c050929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac000000000';
+    '020000000001012b1f6607c1c32a022fa8b6e815c2141d90215aecc33b46d194c2898f36feb4460000000000ffffffff01d51600000000000016001476649a1a1cf948f43a50da902411e8a2a638612c0340ad18f6a2b5f4aa173b6898f33d903b7a91ea2be52a20df571c0f02e1dc97f466c94e192888e6936c2c46fbb5f7ea91a5b69a281a13dbe15e29bf610c165161b6b7207172065c1e7113ded3722575b1713f8d9c47340b422425274c3273a6d9308679ac0063036f7264010118746578742f706c61696e3b636861727365743d7574662d38004c70686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a6821c150929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac000000000';
 
   const revealTxResult = await broadcastRevealTx(id, revealTxHex);
   console.log('\nReveal Transaction Broadcasted result:', revealTxResult);

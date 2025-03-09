@@ -385,6 +385,8 @@ export async function createWallet(walletName: string, descriptorSupport = false
 
   const params = descriptorSupport ? paramsForImportDescriptor : paramsForImportPrivateKey;
 
+  console.log('createWallet URL', RPC_URL);
+
   try {
     const response = await axios.post(
       RPC_URL,

@@ -1,0 +1,321 @@
+import {
+  createCommit,
+  createReveal,
+  getInscriptionStatus,
+  getSenderInscriptions,
+  isInscriptionPaid,
+  getInscriptionPaymentUtxo,
+  broadcastRevealTx,
+} from './client';
+import path from 'path';
+import { btcToSats } from '../utils/helpers';
+import 'dotenv/config';
+
+// from who we create the inscription
+const RECIPIENT_ADDRESS = process.env.RECIPIENT_ADDRESS || '';
+// for who we create the inscription
+const SENDER_ADDRESS = process.env.SENDER_ADDRESS || '';
+
+// if we hard code it, it will be rejected
+const FEE_RATE = 1.5;
+const INSCRIBE_FILE = 'test.txt'; // must be in the same directory
+// const INSCRIBE_FILE = 'my_btc.webp'; // must be in the same directory
+// const INSCRIBE_FILE = 'ordinals.png'; // must be in the same directory
+
+const createCommitStep = async () => {
+  // 1. Create commit inscription
+  const commitResult = await createCommit({
+    recipientAddress: RECIPIENT_ADDRESS,
+    senderAddress: SENDER_ADDRESS,
+    feeRate: FEE_RATE,
+    filePath: path.join(__dirname, INSCRIBE_FILE),
+  });
+
+  console.log('Full server response: ', commitResult);
+
+  if (!commitResult.success) {
+    throw new Error('could not create commit');
+  }
+
+  console.log('Commit Transaction Created:');
+  console.log('Fund this address:', commitResult.result.address);
+  console.log('Required amount:', commitResult.result.requiredAmount);
+  console.log('Inscription ID:', commitResult.result.inscriptionId);
+
+  /**
+   * EXAMPLE
+   *
+    Full server response:  {
+      success: true,
+      result: {
+        inscriptionId: 35,
+        fileSize: 112,
+        address: 'tb1p2xv0y3wk6602avmzcnfdwk2kudd8vc8fzk5gkd5tp3p2q583gygq6y2fnp',
+        recipientAddress: 'tb1q22kp7nu2ue57s7gd0vq9fjdc50e4d5hjgy9r6j',
+        senderAddress: 'tb1q7ny5lyyhrqhkzx7x4pvm32pvyjr4pd2ecfl4kf',
+        requiredAmount: '155',
+        createResult: true
+      }
+    }
+   *
+   **/
+};
+
+const getSenderInscriptionsStep = async () => {
+  // 2. Get a list of current sender inscriptions
+  const senderAddress = SENDER_ADDRESS; // to be sent from the wallet
+
+  const senderInscriptionsResult = await getSenderInscriptions(senderAddress);
+  console.log('Sender inscriptions: ', senderInscriptionsResult);
+
+  /**
+   *
+    Sender inscriptions:  [
+      {
+        id: 4,
+        address: 'tb1pqjct323e3rq8any0q8ls22994z2n0qcknzfecy34j6sfmame2wrq9t69gx',
+        required_amount: 118,
+        status: 'pending',
+        commit_tx_id: null,
+        sender_address: 'tb1q7ny5lyyhrqhkzx7x4pvm32pvyjr4pd2ecfl4kf',
+        recipient_address: 'tb1q22kp7nu2ue57s7gd0vq9fjdc50e4d5hjgy9r6j',
+        created_at: '2025-02-24 22:55:20'
+      },
+      {
+        id: 35,
+        address: 'tb1p2xv0y3wk6602avmzcnfdwk2kudd8vc8fzk5gkd5tp3p2q583gygq6y2fnp',
+        required_amount: 155,
+        status: 'pending',
+        commit_tx_id: null,
+        sender_address: 'tb1q7ny5lyyhrqhkzx7x4pvm32pvyjr4pd2ecfl4kf',
+        recipient_address: 'tb1q22kp7nu2ue57s7gd0vq9fjdc50e4d5hjgy9r6j',
+        created_at: '2025-03-03 22:10:26'
+      }
+    ]
+   * */
+};
+
+const checkInscriptionStatusStep = async () => {
+  // 3. Check inscription status and details
+  const inscriptionId = 44;
+
+  const inscriptionStatus = await getInscriptionStatus(inscriptionId);
+  console.log('inscriptionStatus ', inscriptionStatus);
+
+  /*
+   *
+    inscriptionStatus  {
+      success: true,
+      result: {
+        id: 20,
+        address: 'tb1p2knzwr9txs8ynsx5efy57lxp2dlz0xk7vqtn8xypffphr9g6lysqqsgvgc',
+        required_amount: 118,
+        status: 'reveal_ready',
+        commit_tx_id: 'bb523d9b345de1f59c5eaeaf7a45e86369ee5bc56b76f0fb44007d1e962deee2',
+        created_at: '2025-02-26 00:37:59'
+      }
+    }
+
+      OR, etc
+
+    inscriptionStatus  {
+      success: true,
+      result: {
+        id: 35,
+        address: 'tb1p2xv0y3wk6602avmzcnfdwk2kudd8vc8fzk5gkd5tp3p2q583gygq6y2fnp',
+        required_amount: 155,
+        status: 'pending',
+        commit_tx_id: null,
+        created_at: '2025-03-03 22:10:26'
+      }
+    }
+
+   * */
+};
+
+const checkInscriptionPaymentStep = async () => {
+  // 4. Check inscription payment (would trigger status update on remote end if paid)
+
+  const address = 'bc1plmxjy6yx993hs6h9vu2z36agt82m77pmkxfg30h46282pw8gn66sx4z32d';
+  const id = '44';
+  const requiredAmount = '155';
+
+  const senderAddress = SENDER_ADDRESS;
+
+  const isInscriptiionPaidResponse = await isInscriptionPaid(address, id, senderAddress, requiredAmount);
+  console.log('isInscriptiionPaidResponse', isInscriptiionPaidResponse);
+
+  /*
+   * 
+    isInscriptiionPaidResponse {
+      success: true,
+      result: {
+        is_paid: true,
+        id: 20,
+        address: 'tb1p2knzwr9txs8ynsx5efy57lxp2dlz0xk7vqtn8xypffphr9g6lysqqsgvgc',
+        amount: 118,
+        sender_address: 'tb1q7ny5lyyhrqhkzx7x4pvm32pvyjr4pd2ecfl4kf'
+      }
+    }
+
+
+    isInscriptiionPaidResponse {
+      success: true,
+      result: {
+        is_paid: false,
+        id: 35,
+        address: 'tb1p2xv0y3wk6602avmzcnfdwk2kudd8vc8fzk5gkd5tp3p2q583gygq6y2fnp',
+        amount: 155,
+        sender_address: 'tb1q7ny5lyyhrqhkzx7x4pvm32pvyjr4pd2ecfl4kf'
+      }
+    }
+   * */
+};
+
+const getInscriptionUtxoStep = async () => {
+  // 5. Check inscription payment UTXO
+  const senderAddress = SENDER_ADDRESS;
+
+  const address = 'bc1plmxjy6yx993hs6h9vu2z36agt82m77pmkxfg30h46282pw8gn66sx4z32d';
+  const id = '44';
+  const requiredAmount = '155';
+
+  const paymentUtxoResponse = await getInscriptionPaymentUtxo(address, id, senderAddress, requiredAmount);
+  console.log('paymentUtxoResponse', paymentUtxoResponse);
+
+  /*
+
+paymentUtxoResponse {
+  success: true,
+  result: {
+    paymentUtxo: {
+      txid: '9d9ac5988f06f3468ac5747c505e879597b45472abc51527d672be438b9a8829',
+      vout: 0,
+      address: 'tb1p2xv0y3wk6602avmzcnfdwk2kudd8vc8fzk5gkd5tp3p2q583gygq6y2fnp',
+      label: 'insc_wallet_35_lbl',
+      scriptPubKey: '51205198f245d6d69eaeb362c4d2d75956e35a7660e915a88b368b0c42a050f14110',
+      amount: 0.00001,
+      confirmations: 27,
+      spendable: true,
+      solvable: true,
+      desc: 'rawtr(5198f245d6d69eaeb362c4d2d75956e35a7660e915a88b368b0c42a050f14110)#df0fpeyk',
+      parent_descs: [Array],
+      safe: true
+    },
+    id: 35,
+    address: 'tb1p2xv0y3wk6602avmzcnfdwk2kudd8vc8fzk5gkd5tp3p2q583gygq6y2fnp',
+    amount: 155,
+    sender_address: 'tb1q7ny5lyyhrqhkzx7x4pvm32pvyjr4pd2ecfl4kf'
+  }
+}
+   * */
+};
+
+const getInscriptionRevealDetailsStep = async () => {
+  // 6. After funding and confirmation, create reveal
+  const vout = 0;
+  // const amount = 0.0000015; // 150
+  const amount = 0.00006; // 1_000
+
+  const id = '44';
+  const paymentTxid = '46b4fe368f89c294d1463bc3ec5a21901d14c215e8b6a82f022ac3c107661f2b';
+
+  const utxoAmountInSats = btcToSats(amount);
+
+  const revealResult = await createReveal({
+    inscriptionId: id,
+    commitTxId: paymentTxid,
+    vout,
+    amount: utxoAmountInSats!,
+    filePath: path.join(__dirname, INSCRIBE_FILE),
+  });
+
+  console.log('Full server response: ', revealResult);
+  /*
+   *
+    Full server response:  {
+      success: true,
+      result: {
+        revealTxHex: '0200000000010129889a8b43be72d62715c5ab7254b49795875e507c74c58a46f3068f98c59a9d0000000000ffffffff014d0300000000000016001452ac1f4f8ae669e8790d7b0054c9b8a3f356d2f203408ca124815169e1f0ebe66eeec5e349f78538ab0fcea09641290c98a097fd53c7ac1885e76e65f09ec495002048f5f7e836f1b87c3d4f5ba95acff38f6caaf03fb720e3e0f257bfa582a147cbe690e3a17f05afe1dd5e94d8e99e6055d79e0ee57ef9ac0063036f7264010118746578742f706c61696e3b636861727365743d7574662d38004c70686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a6821c050929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac000000000',
+        debug: {
+          generatedAddress: 'tb1p2xv0y3wk6602avmzcnfdwk2kudd8vc8fzk5gkd5tp3p2q583gygq6y2fnp',
+          pubkey: '031d0d4c59583fd9e83fe3fd7658089ff7323a6cf53d3098d9bb86b90115af61e3',
+          amount: 1000,
+          fees: '454'
+        }
+      }
+    }
+
+   * */
+};
+
+const broadcastRevealTxHexStep = async () => {
+  // 7. Broadcast reveal transaction
+  const id = '44';
+  const revealTxHex =
+    '020000000001012b1f6607c1c32a022fa8b6e815c2141d90215aecc33b46d194c2898f36feb4460000000000ffffffff01d51600000000000016001476649a1a1cf948f43a50da902411e8a2a638612c0340ad18f6a2b5f4aa173b6898f33d903b7a91ea2be52a20df571c0f02e1dc97f466c94e192888e6936c2c46fbb5f7ea91a5b69a281a13dbe15e29bf610c165161b6b7207172065c1e7113ded3722575b1713f8d9c47340b422425274c3273a6d9308679ac0063036f7264010118746578742f706c61696e3b636861727365743d7574662d38004c70686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a6821c150929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac000000000';
+
+  const revealTxResult = await broadcastRevealTx(id, revealTxHex);
+  console.log('\nReveal Transaction Broadcasted result:', revealTxResult);
+
+  /*
+   *
+    Reveal Transaction Broadcasted result: {
+      success: true,
+      result: {
+        txId: 'efb077b8acad7405ff285493b992a02f889f70f47c5b0978c0c6733ae11340a9',
+        id: 35
+      }
+    }
+
+
+Reveal Transaction Broadcasted result: {
+  success: true,
+  result: {
+    txId: null,
+    id: 35,
+    error_details: {
+      errCode: 'ERR_BAD_RESPONSE',
+      errMsg: 'Request failed with status code 500',
+      errStatus: 500,
+      responseStatus: 500,
+      responseStatusText: 'Internal Server Error',
+      dataErrCode: -27,
+      dataErrMsg: 'Transaction already in block chain',
+      details: 'RPC Error: {"code":-27,"message":"Transaction already in block chain"}',
+      originalResponseError: [Object]
+    }
+  }
+}
+   * */
+};
+
+async function main() {
+  try {
+    // 1. Create commit inscription
+    // await createCommitStep();
+    //
+    // 2. Get a list of current sender inscriptions
+    await getSenderInscriptionsStep();
+    //
+    // 3. Check inscription status and details
+    // await checkInscriptionStatusStep();
+    //
+    // 4. Check inscription payment (would trigger status update on remote end if paid)
+    // await checkInscriptionPaymentStep();
+    //
+    // 5. Check inscription payment UTXO
+    // await getInscriptionUtxoStep();
+    //
+    // 6. After funding and confirmation, create reveal
+    // await getInscriptionRevealDetailsStep();
+    //
+    // 7. Broadcast reveal transaction
+    // await broadcastRevealTxHexStep();
+    //
+  } catch (error) {
+    console.error('Error:', error instanceof Error ? error.message : 'Unknown error');
+  }
+}
+
+main();

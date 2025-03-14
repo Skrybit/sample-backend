@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import multer from 'multer';
 import { createInscription } from './createInscription';
+import corsMiddleware from './middleware/cors';
 import { DUST_LIMIT } from './config/network';
 import { getPublicKeyFromWif, getPrivateKey } from './utils/walletUtils';
 import { checkPaymentToAddress, getPaymentUtxo, broadcastTx, createWalletAndAddressDescriptor } from './services/utils';
@@ -145,6 +146,7 @@ interface BroadcastRevealTxBody {
 // Express app setup
 const app: Application = express();
 
+app.use(corsMiddleware);
 app.use(express.json());
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
@@ -398,12 +400,6 @@ app.get('/inscription/:id', (req: Request<{ id: string }>, res: Response, next: 
  *               type: array
  *               items:
  *                 $ref: '#/components/schemas/Inscription'
- *       404:
- *         description: No inscriptions found
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  */
 app.get(
   '/sender-inscriptions/:sender_address',
@@ -412,7 +408,7 @@ app.get(
       const rows = getInscriptionBySender.all(req.params.sender_address) as Inscription[];
 
       if (!rows.length) {
-        return res.status(404).json({ error: 'Inscriptions for this sender not found' });
+        return res.json([]);
       }
 
       const data = rows.map((row) => ({

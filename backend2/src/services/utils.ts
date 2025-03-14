@@ -28,7 +28,7 @@ export async function checkPaymentToAddress(
 ): Promise<{ success: true; result: boolean } | { success: false; error: ErrorDetails }> {
   console.log(`Checking ${address} for ${amountInSats}`);
 
-  if (inscriptionStatus === 'paid') {
+  if (inscriptionStatus === 'paid' || inscriptionStatus === 'reveal_ready') {
     return { success: true, result: true };
   }
 
@@ -108,7 +108,9 @@ export async function getPaymentUtxo(
   console.log(`Checking paymentUtxo for ${address}`);
 
   const walletName = `insc_wallet_${inscriptionId}`;
+  console.log('walletName', walletName);
 
+  // only unspent utxo
   const utxoListResult = await listAddressUTXO(walletName, [address]);
 
   if (!utxoListResult.success) {
@@ -118,10 +120,15 @@ export async function getPaymentUtxo(
   const utxoList = utxoListResult.result;
 
   const paymentUtxo = utxoList.find((utxo) => {
+    console.dir(utxo);
     const utxoAmountInSats = btcToSats(utxo.amount);
-    const isAmountOk = !!utxoAmountInSats && utxoAmountInSats >= amountInSats;
 
-    return utxo.address === address && isAmountOk && utxo.spendable === true && utxo.confirmations >= 1;
+    const isAddressOk = utxo.address === address;
+    const isAmountOk = !!utxoAmountInSats && utxoAmountInSats >= amountInSats;
+    const isSpendable = utxo.spendable;
+    const isConfirmed = utxo.confirmations >= 1;
+
+    return isAddressOk && isAmountOk && isSpendable && isConfirmed;
   });
 
   if (!paymentUtxo) {
@@ -187,28 +194,24 @@ export async function createWalletAndAddressDescriptor(
   const createWalletResult = await createWallet(walletName, true);
 
   if (!createWalletResult.success) {
-    console.log('err 1', createWalletResult.error);
     return { success: false, error: createWalletResult.error };
   }
 
   const loadWalletResult = await loadWallet(walletName);
 
   if (!loadWalletResult.success) {
-    console.log('err 2', loadWalletResult.error);
     return { success: false, error: loadWalletResult.error };
   }
 
   const descriptorToImportResult = await getAddressDescriptorWithChecksum(revealAddress);
 
   if (!descriptorToImportResult.success) {
-    console.log('err 3', descriptorToImportResult.error);
     return { success: false, error: descriptorToImportResult.error };
   }
 
   const importResult = await importDescriptor(descriptorToImportResult.result, walletName);
 
   if (!importResult.success) {
-    console.log('err 4', importResult.error);
     return { success: false, error: importResult.error };
   }
 

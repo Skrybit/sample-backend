@@ -12,10 +12,10 @@ import {
   getInscription,
   getInscriptionBySender,
   updateInscription,
-  updateInscriptionPayment,
 } from './db/sqlite';
+import paymentsRouter from './routes/payments';
 import { getPublicKeyFromWif, getPrivateKey } from './utils/walletUtils';
-import { checkPaymentToAddress, getPaymentUtxo, broadcastTx, createWalletAndAddressDescriptor } from './services/utils';
+import { broadcastTx, createWalletAndAddressDescriptor } from './services/utils';
 import { getUTCTimestampInSec, timestampToDateString } from './utils/dateUtils';
 
 console.log('__filename', __filename);
@@ -76,6 +76,7 @@ const swaggerOptions = {
             address: { type: 'string' },
             amount: { type: 'integer' },
             sender_address: { type: 'string' },
+            status: { type: 'string' },
           },
         },
         PaymentUtxo: {
@@ -136,13 +137,6 @@ interface CreateRevealBody {
   amount: string;
 }
 
-interface PaymentStatusBody {
-  address: string;
-  required_amount: string;
-  sender_address: string;
-  id: string;
-}
-
 interface BroadcastRevealTxBody {
   txHex: string;
   id: string;
@@ -151,11 +145,12 @@ interface BroadcastRevealTxBody {
 // Express app setup
 const app: Application = express();
 
+// Initialize database
+initDatabase();
+
+// Middleware
 app.use(corsMiddleware);
 app.use(express.json());
-
-const swaggerSpec = swaggerJsdoc(swaggerOptions);
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // bigint parse middleware
 app.use((_req, res, next) => {
@@ -169,12 +164,14 @@ app.use((_req, res, next) => {
   next();
 });
 
+const swaggerSpec = swaggerJsdoc(swaggerOptions);
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use('/payments', paymentsRouter);
+
 // Multer configuration
 const upload = multer({
   dest: UPLOAD_DIR,
 });
-
-initDatabase();
 
 /**
  * @swagger
@@ -381,233 +378,6 @@ app.get(
       }));
 
       res.json(data);
-    } catch (error) {
-      next(error);
-    }
-  },
-);
-
-/**
- * @swagger
- * /payment-status:
- *   post:
- *     tags: [Payments]
- *     summary: Check payment status for an inscription
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - address
- *               - required_amount
- *               - sender_address
- *               - id
- *             properties:
- *               address:
- *                 type: string
- *               required_amount:
- *                 type: string
- *               sender_address:
- *                 type: string
- *               id:
- *                 type: string
- *     responses:
- *       200:
- *         description: Payment status
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/PaymentStatus'
- *       400:
- *         description: Invalid input
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- */
-app.post(
-  '/payment-status',
-  (req: Request<Record<string, never>, {}, PaymentStatusBody>, res: Response, next: NextFunction) => {
-    try {
-      const { address, required_amount, sender_address, id } = req.body;
-
-      if (!address || !required_amount || !sender_address || !id) {
-        return res.status(400).json({ error: 'Missing required data' });
-      }
-
-      const parsedId = parseInt(id);
-
-      if (isNaN(parsedId)) {
-        return res.status(400).json({ error: 'Invalid inscription ID' });
-      }
-
-      const row = getInscription.get(parsedId) as Inscription | undefined;
-
-      if (!row) {
-        return res.status(404).json({ error: 'Inscription not found' });
-      }
-
-      if (row.sender_address !== sender_address.trim()) {
-        return res.status(400).json({ error: 'Sender address mismatch' });
-      }
-
-      if (row.required_amount !== Number(required_amount)) {
-        return res.status(400).json({ error: 'Amount mismatch' });
-      }
-
-      if (row.address !== address.trim()) {
-        return res.status(400).json({ error: 'Address mismatch' });
-      }
-
-      checkPaymentToAddress(
-        row.id,
-        row.status,
-        row.created_at,
-        row.address,
-        row.required_amount,
-        (status: string, id: number) => updateInscriptionPayment.run(status, id),
-      )
-        .then((checkPaymentResult) => {
-          if (!checkPaymentResult.success) {
-            return res.json({
-              is_paid: false,
-              id: row.id,
-              address: row.address,
-              amount: row.required_amount,
-              sender_address: row.sender_address,
-              error_details: checkPaymentResult.error,
-            });
-          }
-
-          const { result } = checkPaymentResult;
-
-          return res.json({
-            is_paid: result,
-            id: row.id,
-            address: row.address,
-            amount: row.required_amount,
-            sender_address: row.sender_address,
-          });
-        })
-        .catch((error) =>
-          res.status(400).json({ error: error instanceof Error ? error.message : 'Payment check failed' }),
-        );
-    } catch (error) {
-      next(error);
-    }
-  },
-);
-
-/**
- * @swagger
- * /payment-utxo:
- *   post:
- *     tags: [Payments]
- *     summary: Get payment UTXO details
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - address
- *               - required_amount
- *               - sender_address
- *               - id
- *             properties:
- *               address:
- *                 type: string
- *               required_amount:
- *                 type: string
- *               sender_address:
- *                 type: string
- *               id:
- *                 type: string
- *     responses:
- *       200:
- *         description: UTXO details
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 paymentUtxo:
- *                   $ref: '#/components/schemas/PaymentUtxo'
- *                 id:
- *                   type: integer
- *                 address:
- *                   type: string
- *                 amount:
- *                   type: integer
- *                 sender_address:
- *                   type: string
- *       400:
- *         description: Invalid input
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- */
-app.post(
-  '/payment-utxo',
-  (req: Request<Record<string, never>, {}, PaymentStatusBody>, res: Response, next: NextFunction) => {
-    try {
-      const { address, required_amount, sender_address, id } = req.body;
-
-      if (!address || !required_amount || !sender_address || !id) {
-        return res.status(400).json({ error: 'Missing required data' });
-      }
-
-      const parsedId = parseInt(id);
-
-      if (isNaN(parsedId)) {
-        return res.status(400).json({ error: 'Invalid inscription ID' });
-      }
-
-      const row = getInscription.get(parsedId) as Inscription | undefined;
-
-      if (!row) {
-        return res.status(404).json({ error: 'Inscription not found' });
-      }
-
-      if (row.sender_address !== sender_address.trim()) {
-        return res.status(400).json({ error: 'Sender address mismatch' });
-      }
-
-      if (row.required_amount !== Number(required_amount)) {
-        return res.status(400).json({ error: 'Amount mismatch' });
-      }
-
-      if (row.address !== address.trim()) {
-        return res.status(400).json({ error: 'Address mismatch' });
-      }
-
-      getPaymentUtxo(row.id, row.address, row.required_amount)
-        .then((checkPaymentUtxoResult) => {
-          if (!checkPaymentUtxoResult.success) {
-            return res.json({
-              paymentUtxo: null,
-              id: row.id,
-              error_details: checkPaymentUtxoResult.error,
-            });
-          }
-
-          const { result } = checkPaymentUtxoResult;
-
-          return res.json({
-            paymentUtxo: result,
-            id: row.id,
-            address: row.address,
-            amount: row.required_amount,
-            sender_address: row.sender_address,
-          });
-        })
-        .catch((error) =>
-          res.status(400).json({ error: error instanceof Error ? error.message : 'Payment utxo check failed' }),
-        );
     } catch (error) {
       next(error);
     }

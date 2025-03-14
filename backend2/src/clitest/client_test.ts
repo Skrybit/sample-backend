@@ -97,7 +97,8 @@ const getSenderInscriptionsStep = async () => {
 
 const checkInscriptionStatusStep = async () => {
   // 3. Check inscription status and details
-  const inscriptionId = 44;
+  // const inscriptionId = 44; // main net
+  const inscriptionId = 38; // test net
 
   const inscriptionStatus = await getInscriptionStatus(inscriptionId);
   console.log('inscriptionStatus ', inscriptionStatus);
@@ -136,8 +137,11 @@ const checkInscriptionStatusStep = async () => {
 const checkInscriptionPaymentStep = async () => {
   // 4. Check inscription payment (would trigger status update on remote end if paid)
 
-  const address = 'bc1plmxjy6yx993hs6h9vu2z36agt82m77pmkxfg30h46282pw8gn66sx4z32d';
-  const id = '44';
+  const address = 'tb1pve4cpn4ewscr7mzdp9zw4x5u67xkftkvx5zur4zwxvshw5r8vc0suz4zgm';
+  const id = '38';
+
+  // const address = 'bc1plmxjy6yx993hs6h9vu2z36agt82m77pmkxfg30h46282pw8gn66sx4z32d';
+  // const id = '44';
   const requiredAmount = '155';
 
   const senderAddress = SENDER_ADDRESS;
@@ -176,8 +180,11 @@ const getInscriptionUtxoStep = async () => {
   // 5. Check inscription payment UTXO
   const senderAddress = SENDER_ADDRESS;
 
-  const address = 'bc1plmxjy6yx993hs6h9vu2z36agt82m77pmkxfg30h46282pw8gn66sx4z32d';
-  const id = '44';
+  const address = 'tb1pve4cpn4ewscr7mzdp9zw4x5u67xkftkvx5zur4zwxvshw5r8vc0suz4zgm';
+  const id = '38';
+
+  // const address = 'bc1plmxjy6yx993hs6h9vu2z36agt82m77pmkxfg30h46282pw8gn66sx4z32d';
+  // const id = '44';
   const requiredAmount = '155';
 
   const paymentUtxoResponse = await getInscriptionPaymentUtxo(address, id, senderAddress, requiredAmount);
@@ -296,13 +303,13 @@ async function main() {
     // await createCommitStep();
     //
     // 2. Get a list of current sender inscriptions
-    await getSenderInscriptionsStep();
+    // await getSenderInscriptionsStep();
     //
     // 3. Check inscription status and details
     // await checkInscriptionStatusStep();
     //
     // 4. Check inscription payment (would trigger status update on remote end if paid)
-    // await checkInscriptionPaymentStep();
+    await checkInscriptionPaymentStep();
     //
     // 5. Check inscription payment UTXO
     // await getInscriptionUtxoStep();

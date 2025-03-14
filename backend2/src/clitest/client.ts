@@ -213,7 +213,7 @@ export async function isInscriptionPaid(
 ): Promise<ApiRes<InscriptionPayment> | ApiErrRes> {
   try {
     const response = await axios.post<InscriptionPayment>(
-      `${BASE_URL}/payment-status`,
+      `${BASE_URL}/payments/status`,
       {
         id,
         address,
@@ -243,7 +243,7 @@ export async function getInscriptionPaymentUtxo(
 ): Promise<ApiRes<InscriptionUtxo> | ApiErrRes> {
   try {
     const response = await axios.post<InscriptionUtxo>(
-      `${BASE_URL}/payment-utxo`,
+      `${BASE_URL}/payments/utxo`,
       {
         id,
         address,

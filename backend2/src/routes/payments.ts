@@ -5,8 +5,53 @@ import { Inscription, PaymentStatusBody } from '../types';
 
 const router = Router();
 
-// POST /payments/status
-// was /payment-status:
+async function validatePaymentRequest(address: string, amount: string, sender: string, id: string) {
+  const errors = [];
+  if (!address) errors.push('address is required');
+  if (!amount) errors.push('required_amount is required');
+  if (!sender) errors.push('sender_address is required');
+  if (!id) errors.push('id is required');
+
+  if (errors.length > 0) {
+    return { error: { error: 'Missing required fields', details: errors } };
+  }
+
+  const inscriptionId = parseInt(id);
+
+  if (isNaN(inscriptionId)) {
+    return { error: { error: 'Invalid inscription ID format' } };
+  }
+
+  const inscription = (await getInscription.get(inscriptionId)) as Inscription | undefined;
+
+  if (!inscription) {
+    return { error: { error: 'Inscription not found' } };
+  }
+
+  if (inscription.sender_address !== sender.trim()) {
+    return { error: { error: 'Sender address mismatch' } };
+  }
+
+  // if (inscription.required_amount !== Number(amount)) {
+  //   return { error: { error: 'Amount mismatch' } };
+  // }
+
+  if (inscription.address !== address.trim()) {
+    return { error: { error: 'Address mismatch' } };
+  }
+
+  return { inscription };
+}
+
+function formatPaymentResponse(inscription: any) {
+  return {
+    id: inscription.id,
+    address: inscription.address,
+    amount: inscription.required_amount,
+    sender_address: inscription.sender_address,
+    status: inscription.status,
+  };
+}
 
 /**
  * @swagger
@@ -52,14 +97,12 @@ router.post('/status', async (req, res) => {
   try {
     const { address, required_amount, sender_address, id } = req.body as PaymentStatusBody;
 
-    // Validate input
     const validation = await validatePaymentRequest(address, required_amount, sender_address, id);
 
     if (validation.error) return res.status(400).json(validation.error);
 
     const { inscription } = validation;
 
-    // Check payment status
     const paymentStatus = await checkPaymentToAddress(
       inscription.id,
       inscription.status,
@@ -72,7 +115,6 @@ router.post('/status', async (req, res) => {
     if (!paymentStatus.success) {
       return res.json({
         ...formatPaymentResponse(inscription),
-        // error: 'Payment check failed',
         is_paid: false,
         error_details: paymentStatus.error,
       });
@@ -86,9 +128,6 @@ router.post('/status', async (req, res) => {
     res.status(400).json({ error: error instanceof Error ? error.message : 'Payment check failed' });
   }
 });
-
-// POST /payments/utxo
-// was /payment-utxo
 
 /**
  * @swagger
@@ -145,14 +184,12 @@ router.post('/utxo', async (req, res) => {
   try {
     const { address, required_amount, sender_address, id } = req.body as PaymentStatusBody;
 
-    // Validate input
     const validation = await validatePaymentRequest(address, required_amount, sender_address, id);
 
     if (validation.error) return res.status(400).json(validation.error);
 
     const { inscription } = validation;
 
-    // Get UTXO details
     const utxoResult = await getPaymentUtxo(inscription.id, inscription.address, inscription.required_amount);
 
     if (!utxoResult.success) {
@@ -171,56 +208,5 @@ router.post('/utxo', async (req, res) => {
     res.status(400).json({ error: error instanceof Error ? error.message : 'Payment utxo check failed' });
   }
 });
-
-// Validation helper
-async function validatePaymentRequest(address: string, amount: string, sender: string, id: string) {
-  const errors = [];
-  if (!address) errors.push('address is required');
-  if (!amount) errors.push('required_amount is required');
-  if (!sender) errors.push('sender_address is required');
-  if (!id) errors.push('id is required');
-
-  if (errors.length > 0) {
-    return { error: { error: 'Missing required fields', details: errors } };
-  }
-
-  const inscriptionId = parseInt(id);
-
-  if (isNaN(inscriptionId)) {
-    return { error: { error: 'Invalid inscription ID format' } };
-  }
-
-  const inscription = (await getInscription.get(inscriptionId)) as Inscription | undefined;
-
-  if (!inscription) {
-    return { error: { error: 'Inscription not found' } };
-  }
-
-  if (inscription.sender_address !== sender.trim()) {
-    return { error: { error: 'Sender address mismatch' } };
-  }
-
-  if (inscription.required_amount !== Number(amount)) {
-    return { error: { error: 'Amount mismatch' } };
-  }
-
-  if (inscription.address !== address.trim()) {
-    return { error: { error: 'Address mismatch' } };
-  }
-
-  return { inscription };
-}
-
-// Response formatting
-function formatPaymentResponse(inscription: any) {
-  return {
-    id: inscription.id,
-    address: inscription.address,
-    amount: inscription.required_amount,
-    sender_address: inscription.sender_address,
-    status: inscription.status,
-    // created_at: inscription.created_at,
-  };
-}
 
 export default router;

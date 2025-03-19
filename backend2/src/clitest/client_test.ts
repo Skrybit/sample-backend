@@ -1,33 +1,25 @@
 import {
   createCommit,
-  createReveal,
-  getInscriptionStatus,
   getSenderInscriptions,
-  isInscriptionPaid,
-  getInscriptionPaymentUtxo,
-  broadcastRevealTx,
+  getInscription,
+  // createReveal,
+  // isInscriptionPaid,
+  // getInscriptionPaymentUtxo,
+  // broadcastRevealTx,
 } from './client';
 import path from 'path';
+import { RECIPIENT_ADDRESS, SENDER_ADDRESS, FEE_RATE } from '../config/network';
 import { btcToSats } from '../utils/helpers';
-import 'dotenv/config';
-
-// from who we create the inscription
-const RECIPIENT_ADDRESS = process.env.RECIPIENT_ADDRESS || '';
-// for who we create the inscription
-const SENDER_ADDRESS = process.env.SENDER_ADDRESS || '';
 
 // if we hard code it, it will be rejected
-const FEE_RATE = 1.5;
 const INSCRIBE_FILE = 'test.txt'; // must be in the same directory
-// const INSCRIBE_FILE = 'my_btc.webp'; // must be in the same directory
-// const INSCRIBE_FILE = 'ordinals.png'; // must be in the same directory
 
 const createCommitStep = async () => {
   // 1. Create commit inscription
   const commitResult = await createCommit({
     recipientAddress: RECIPIENT_ADDRESS,
     senderAddress: SENDER_ADDRESS,
-    feeRate: FEE_RATE,
+    feeRate: `${FEE_RATE}`,
     filePath: path.join(__dirname, INSCRIBE_FILE),
   });
 
@@ -38,8 +30,8 @@ const createCommitStep = async () => {
   }
 
   console.log('Commit Transaction Created:');
-  console.log('Fund this address:', commitResult.result.address);
-  console.log('Required amount:', commitResult.result.requiredAmount);
+  console.log('Fund this address:', commitResult.result.paymentAddress);
+  console.log('Required amount:', commitResult.result.requiredAmountInSats);
   console.log('Inscription ID:', commitResult.result.inscriptionId);
 
   /**
@@ -95,13 +87,13 @@ const getSenderInscriptionsStep = async () => {
    * */
 };
 
-const checkInscriptionStatusStep = async () => {
+const checkInscriptionStep = async () => {
   // 3. Check inscription status and details
   // const inscriptionId = 44; // main net
-  const inscriptionId = 38; // test net
+  const inscriptionId = 51; // test net
 
-  const inscriptionStatus = await getInscriptionStatus(inscriptionId);
-  console.log('inscriptionStatus ', inscriptionStatus);
+  const inscriptionData = await getInscription(inscriptionId);
+  console.log('inscription data', inscriptionData);
 
   /*
    *
@@ -146,8 +138,8 @@ const checkInscriptionPaymentStep = async () => {
 
   const senderAddress = SENDER_ADDRESS;
 
-  const isInscriptiionPaidResponse = await isInscriptionPaid(address, id, senderAddress, requiredAmount);
-  console.log('isInscriptiionPaidResponse', isInscriptiionPaidResponse);
+  // const isInscriptiionPaidResponse = await isInscriptionPaid(address, id, senderAddress, requiredAmount);
+  // console.log('isInscriptiionPaidResponse', isInscriptiionPaidResponse);
 
   /*
    * 
@@ -187,8 +179,8 @@ const getInscriptionUtxoStep = async () => {
   // const id = '44';
   const requiredAmount = '155';
 
-  const paymentUtxoResponse = await getInscriptionPaymentUtxo(address, id, senderAddress, requiredAmount);
-  console.log('paymentUtxoResponse', paymentUtxoResponse);
+  // const paymentUtxoResponse = await getInscriptionPaymentUtxo(address, id, senderAddress, requiredAmount);
+  // console.log('paymentUtxoResponse', paymentUtxoResponse);
 
   /*
 
@@ -229,15 +221,15 @@ const getInscriptionRevealDetailsStep = async () => {
 
   const utxoAmountInSats = btcToSats(amount);
 
-  const revealResult = await createReveal({
-    inscriptionId: id,
-    commitTxId: paymentTxid,
-    vout,
-    amount: utxoAmountInSats!,
-    filePath: path.join(__dirname, INSCRIBE_FILE),
-  });
-
-  console.log('Full server response: ', revealResult);
+  // const revealResult = await createReveal({
+  //   inscriptionId: id,
+  //   commitTxId: paymentTxid,
+  //   vout,
+  //   amount: utxoAmountInSats!,
+  //   filePath: path.join(__dirname, INSCRIBE_FILE),
+  // });
+  //
+  // console.log('Full server response: ', revealResult);
   /*
    *
     Full server response:  {
@@ -262,8 +254,8 @@ const broadcastRevealTxHexStep = async () => {
   const revealTxHex =
     '020000000001012b1f6607c1c32a022fa8b6e815c2141d90215aecc33b46d194c2898f36feb4460000000000ffffffff01d51600000000000016001476649a1a1cf948f43a50da902411e8a2a638612c0340ad18f6a2b5f4aa173b6898f33d903b7a91ea2be52a20df571c0f02e1dc97f466c94e192888e6936c2c46fbb5f7ea91a5b69a281a13dbe15e29bf610c165161b6b7207172065c1e7113ded3722575b1713f8d9c47340b422425274c3273a6d9308679ac0063036f7264010118746578742f706c61696e3b636861727365743d7574662d38004c70686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a6821c150929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac000000000';
 
-  const revealTxResult = await broadcastRevealTx(id, revealTxHex);
-  console.log('\nReveal Transaction Broadcasted result:', revealTxResult);
+  // const revealTxResult = await broadcastRevealTx(id, revealTxHex);
+  // console.log('\nReveal Transaction Broadcasted result:', revealTxResult);
 
   /*
    *
@@ -306,10 +298,10 @@ async function main() {
     // await getSenderInscriptionsStep();
     //
     // 3. Check inscription status and details
-    // await checkInscriptionStatusStep();
+    await checkInscriptionStep();
     //
     // 4. Check inscription payment (would trigger status update on remote end if paid)
-    await checkInscriptionPaymentStep();
+    // await checkInscriptionPaymentStep();
     //
     // 5. Check inscription payment UTXO
     // await getInscriptionUtxoStep();

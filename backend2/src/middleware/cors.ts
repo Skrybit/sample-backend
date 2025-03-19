@@ -1,7 +1,7 @@
 import { RequestHandler } from 'express';
 import cors from 'cors';
 
-const allowedOrigins = ['http://localhost:5173', 'http://localhost:3000'];
+const allowedOrigins = ['http://localhost:5173', 'http://localhost:3000', 'http://10.11.0.225'];
 
 const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {

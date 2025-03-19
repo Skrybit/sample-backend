@@ -1,17 +1,6 @@
 import axios from 'axios';
 import * as dateUtils from '../utils/dateUtils';
-import 'dotenv/config';
-
-// Configuration from environment
-const RPC_CONFIG = {
-  host: process.env.RPC_HOST || '127.0.0.1',
-  port: process.env.RPC_PORT || 18332,
-  user: process.env.RPC_USER || 'your_username',
-  pass: process.env.RPC_PASS || 'your_password',
-};
-
-const RPC_URL = `http://${RPC_CONFIG.host}:${RPC_CONFIG.port}/`;
-const RPC_TIMEOUT = 15_000;
+import { RPC_CONFIG, RPC_URL, RPC_TIMEOUT } from '../config/network';
 
 type BlockHeader = {
   time: number;
@@ -20,7 +9,6 @@ type BlockHeader = {
   hash: string;
 };
 
-// check it
 type RpcRes<T> = {
   success: true;
   result: T;
@@ -32,11 +20,11 @@ type RpcErrRes = {
 };
 
 // Axis response -> response.data, map it later when functions use rpcCall
-type RpcResponse<T> = {
-  result: T;
-  id: string;
-  error: null;
-};
+// type RpcResponse<T> = {
+//   result: T;
+//   id: string;
+//   error: null;
+// };
 
 // Axios error -> error.response.data
 type RpcErrResponse = {
@@ -124,18 +112,6 @@ type GetBlockAtTimeApproximateResponse =
   | { success: false; error: ErrorDetails };
 
 type BroadcastRevealTransactionResponse = { result: string; success: true } | { success: false; error: ErrorDetails };
-
-// export function isSuccessResponse(
-//   response: WalletAddressResponse
-// ): response is { success: boolean; result: WalletAddress[]; originalResponse: RpcRes<WalletAddressResponse[]> } {
-//   return 'result' in response;
-// }
-//
-// function isErrorResponse(
-//   response: WalletAddressResponse
-// ): response is { success: boolean; error: ErrorDetails } {
-//   return 'error' in response;
-// }
 
 export function buildRpcUrlForWallet(walletName: string) {
   if (!walletName) {
@@ -234,7 +210,6 @@ export const getErrorDetails = (error: any): ErrorDetails => {
   };
 };
 
-// done
 export async function isWalletLoaded(walletName: string): Promise<IsWalletLoadedResponse> {
   try {
     const response = await axios.post(
@@ -277,7 +252,6 @@ export async function isWalletLoaded(walletName: string): Promise<IsWalletLoaded
   }
 }
 
-// done
 export async function loadWallet(walletName: string): Promise<LoadWalletResponse> {
   try {
     const response = await axios.post(
@@ -293,13 +267,6 @@ export async function loadWallet(walletName: string): Promise<LoadWalletResponse
         timeout: RPC_TIMEOUT,
       },
     );
-
-    // response
-    // data: {
-    //   result: { name: 'insc_wallet_20' },
-    //   error: null,
-    //   id: 'wallet_load'
-    // }
 
     return {
       walletName,
@@ -329,7 +296,6 @@ export async function loadWallet(walletName: string): Promise<LoadWalletResponse
   }
 }
 
-// done
 export async function unLoadWallet(walletName: string): Promise<UnLoadWalletResponse> {
   try {
     const response = await axios.post(
@@ -346,7 +312,6 @@ export async function unLoadWallet(walletName: string): Promise<UnLoadWalletResp
       },
     );
 
-    // data: { result: {}, error: null, id: 'wallet_unload' }
     return {
       success: true,
       result: !response?.data?.error,
@@ -365,7 +330,6 @@ export async function unLoadWallet(walletName: string): Promise<UnLoadWalletResp
   }
 }
 
-// done
 export async function createWallet(walletName: string, descriptorSupport = false): Promise<CreateWalletResponse> {
   const paramsForImportPrivateKey = [
     false, // disable_private_keys
@@ -420,7 +384,6 @@ export async function createWallet(walletName: string, descriptorSupport = false
   }
 }
 
-// done
 export async function getDescriptorChecksum(descriptor: string): Promise<GetDescriptorChecksumResponse> {
   try {
     const response = await axios.post(
@@ -455,7 +418,6 @@ export async function getDescriptorChecksum(descriptor: string): Promise<GetDesc
   }
 }
 
-// done
 export async function importDescriptor(
   descriptorWithChecksum: string,
   walletName: string,
@@ -504,7 +466,6 @@ export async function importDescriptor(
   }
 }
 
-// done
 export async function getBalance(walletName: string): Promise<GetBalanceResponse> {
   try {
     const url = buildRpcUrlForWallet(walletName);
@@ -541,7 +502,6 @@ export async function getBalance(walletName: string): Promise<GetBalanceResponse
   }
 }
 
-// done - scans blockchain from block
 export async function rescanBlockchain(walletName: string, startBlock: number): Promise<RescanBlockchainResponse> {
   try {
     const url = buildRpcUrlForWallet(walletName);
@@ -577,7 +537,6 @@ export async function rescanBlockchain(walletName: string, startBlock: number): 
   }
 }
 
-// done
 export async function listWalletAddresses(walletName: string): Promise<ListWalletAddressesResponse> {
   try {
     const url = buildRpcUrlForWallet(walletName);
@@ -616,7 +575,6 @@ export async function listWalletAddresses(walletName: string): Promise<ListWalle
   }
 }
 
-// done
 export async function listAddressUTXO(walletName: string, addresses: string[]): Promise<ListAddressUTXOResponse> {
   try {
     const url = buildRpcUrlForWallet(walletName);

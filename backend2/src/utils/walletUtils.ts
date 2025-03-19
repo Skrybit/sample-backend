@@ -9,7 +9,6 @@ import * as bitcoin from 'bitcoinjs-lib';
 import * as helpers from './helpers';
 import ECPairFactory from 'ecpair';
 import * as tinysecp from 'tiny-secp256k1';
-import 'dotenv/config';
 import { IS_TESTNET } from '../config/network';
 
 const ECPair = ECPairFactory(tinysecp);

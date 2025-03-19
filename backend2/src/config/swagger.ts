@@ -19,24 +19,22 @@ export const swaggerOptions = {
     ],
     components: {
       schemas: {
-        Inscription: {
+        InscriptionResponse: {
           type: 'object',
           properties: {
             id: { type: 'integer' },
-            temp_private_key: { type: 'string' },
-            address: { type: 'string' },
-            required_amount: { type: 'integer' },
-            file_size: { type: 'integer' },
-            recipient_address: { type: 'string' },
-            sender_address: { type: 'string' },
-            fee_rate: { type: 'number', format: 'float' },
-            created_at: { type: 'string', format: 'date-time' },
-            commit_tx_id: { type: 'string' },
-            reveal_tx_hex: { type: 'string' },
+            payment_address: { type: 'string' },
+            required_amount_in_sats: { type: 'integer' },
+            file_size_in_bytes: { type: 'integer' },
             status: {
               type: 'string',
               enum: ['pending', 'paid', 'reveal_ready', 'completed'],
             },
+            commit_tx_id: { type: 'string' },
+            reveal_tx_hex: { type: 'string' },
+            sender_address: { type: 'string' },
+            recipient_address: { type: 'string' },
+            created_at: { type: 'string', format: 'date-time' },
           },
         },
         PaymentStatus: {

@@ -112,7 +112,11 @@ router.post(
     >,
   ) => {
     try {
-      const { recipientAddress, feeRate, senderAddress } = req.body as CreateCommitPayload;
+      const {
+        recipient_address: recipientAddress,
+        fee_rate: feeRate,
+        sender_address: senderAddress,
+      } = req.body as CreateCommitPayload;
 
       if (!req.file || !recipientAddress || !feeRate) {
         return res.status(400).json({ error: 'Missing required parameters' });

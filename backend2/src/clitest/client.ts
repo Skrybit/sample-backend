@@ -44,19 +44,19 @@ async function handleError<T>(error: T): Promise<ApiErrRes> {
 }
 
 export async function createCommit({
-  recipientAddress,
-  senderAddress,
-  feeRate,
-  filePath,
+  recipient_address,
+  sender_address,
+  fee_rate,
+  file_path,
 }: CreateCommitPayload): Promise<ApiRes<CreateCommitResponse> | ApiErrRes> {
   try {
-    const form = new FormData();
-    form.append('file', fs.createReadStream(filePath));
-    form.append('recipientAddress', recipientAddress);
-    form.append('senderAddress', senderAddress);
-    form.append('feeRate', feeRate.toString());
-
     const url = `${BASE_URL}/inscriptions/create-commit`;
+
+    const form = new FormData();
+    form.append('file', fs.createReadStream(file_path));
+    form.append('recipientAddress', recipient_address);
+    form.append('senderAddress', sender_address);
+    form.append('feeRate', fee_rate);
 
     console.log('createCommit URL', url);
     const response = await axios.post<CreateCommitResponse>(url, form, {

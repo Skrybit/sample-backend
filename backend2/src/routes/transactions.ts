@@ -1,4 +1,4 @@
-import { NextFunction, Router, Request, Response } from 'express';
+import { Router, Request, Response } from 'express';
 import { ErrorDetails } from '../services/rpcApi';
 import { getInscription, updateInscription } from '../db/sqlite';
 import { broadcastTx } from '../services/utils';

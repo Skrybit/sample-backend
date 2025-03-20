@@ -16,10 +16,10 @@ const INSCRIBE_FILE = 'test.txt'; // must be in the same directory
 const createCommitStep = async () => {
   // 1. Create commit inscription
   const commitResult = await createCommit({
-    recipientAddress: RECIPIENT_ADDRESS,
-    senderAddress: SENDER_ADDRESS,
-    feeRate: `${FEE_RATE}`,
-    filePath: path.join(__dirname, INSCRIBE_FILE),
+    recipient_address: RECIPIENT_ADDRESS,
+    sender_address: SENDER_ADDRESS,
+    fee_rate: `${FEE_RATE}`,
+    file_path: path.join(__dirname, INSCRIBE_FILE),
   });
 
   console.log('Full server response: ', commitResult);
@@ -208,7 +208,7 @@ paymentUtxoResponse {
 };
 
 const getInscriptionRevealDetailsStep = async () => {
-  // 6. After funding and confirmation, create reveal
+  // 5. After funding and confirmation, create reveal
   const vout = 1;
   // const amount = 0.0000015; // 150
   const amount = 0.00001; // 1_000
@@ -305,7 +305,7 @@ async function main() {
     // await checkInscriptionPaymentStep();
     //
     // 5. After funding and confirmation, create reveal
-    // await getInscriptionRevealDetailsStep();
+    await getInscriptionRevealDetailsStep();
     //
     // 6. Broadcast reveal transaction
     await broadcastRevealTxHexStep();

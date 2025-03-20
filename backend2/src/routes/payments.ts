@@ -1,8 +1,7 @@
 import { Router } from 'express';
 import { updateInscriptionPayment, getInscription } from '../db/sqlite';
-import { ErrorDetails } from '../services/rpcApi';
 import { checkPaymentToAddress, getPaymentUtxo } from '../services/utils';
-import { ApiErrorResponse, Inscription, PaymentStatusBody, InscriptionPayment } from '../types';
+import { ErrorDetails, ApiErrorResponse, Inscription, PaymentStatusBody, InscriptionPayment } from '../types';
 import { Request, Response } from 'express';
 
 const router = Router();

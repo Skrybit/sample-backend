@@ -1,8 +1,7 @@
 import { Router, Request, Response } from 'express';
-import { ErrorDetails } from '../services/rpcApi';
 import { getInscription, updateInscription } from '../db/sqlite';
 import { broadcastTx } from '../services/utils';
-import { ApiErrorResponse, BroadcastRevealResponse, BroadcastRevealTxBody } from '../types';
+import { ErrorDetails, ApiErrorResponse, BroadcastRevealResponse, BroadcastRevealTxBody } from '../types';
 import { Inscription } from '../types';
 
 const router = Router();

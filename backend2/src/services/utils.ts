@@ -12,10 +12,9 @@ import {
   getBlockAtTimeApproximate,
   createWallet,
   broadcastRevealTransaction,
-  type ErrorDetails,
 } from './rpcApi';
 
-import { PaymentUtxo } from '../types';
+import { type ErrorDetails, PaymentUtxo } from '../types';
 
 type UpdateInscriptionPaymentFn = (status: string, id: number) => RunResult;
 

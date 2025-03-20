@@ -1,108 +1,25 @@
 import axios from 'axios';
 import * as dateUtils from '../utils/dateUtils';
-import { type PaymentUtxo } from '../types';
+import {
+  type BlockHeader,
+  type RpcRes,
+  type RpcErrRes,
+  type ErrorDetails,
+  type IsWalletLoadedResponse,
+  type LoadWalletResponse,
+  type UnLoadWalletResponse,
+  type CreateWalletResponse,
+  type GetDescriptorChecksumResponse,
+  type ImportDescriptorResponse,
+  type GetBalanceResponse,
+  type RescanBlockchainResponse,
+  type ListWalletAddressesResponse,
+  type ListAddressUTXOResponse,
+  type ScanTxOutSetResponse,
+  type BroadcastRevealTransactionResponse,
+  type GetBlockAtTimeApproximateResponse,
+} from '../types';
 import { RPC_CONFIG, RPC_URL, RPC_TIMEOUT } from '../config/network';
-
-type BlockHeader = {
-  time: number;
-  height: number;
-  previousblockhash: string;
-  hash: string;
-};
-
-type RpcRes<T> = {
-  success: true;
-  result: T;
-};
-
-type RpcErrRes = {
-  success: false;
-  error: ErrorDetails;
-};
-
-// Axis response -> response.data, map it later when functions use rpcCall
-// type RpcResponse<T> = {
-//   result: T;
-//   id: string;
-//   error: null;
-// };
-
-// Axios error -> error.response.data
-type RpcErrResponse = {
-  result: null;
-  id: string;
-  error: { code: number; message: string };
-};
-
-export type ErrorDetails = {
-  errCode: string;
-  errMsg: string;
-  errStatus: string;
-  responseStatus?: number;
-  responseStatusText?: string;
-  dataErrCode?: unknown;
-  dataErrMsg: string;
-  details: string;
-  originalResponseError?: RpcErrResponse;
-};
-
-type IsWalletLoadedResponse =
-  | { walletName: string; success: true; result: true }
-  | { walletName: string; success: false; error: ErrorDetails };
-
-type LoadWalletResponse =
-  | { walletName: string; success: false; error: ErrorDetails }
-  | {
-      walletName: string;
-      success: true;
-      result: boolean;
-    };
-
-type UnLoadWalletResponse =
-  | { walletName: string; success: true; result: boolean }
-  | { walletName: string; success: false; error: ErrorDetails };
-
-type CreateWalletResponse =
-  | { walletName: string; success: true; result: boolean }
-  | { walletName: string; success: false; error: ErrorDetails };
-
-type GetDescriptorChecksumResponse = { result: string; success: true } | { success: false; error: ErrorDetails };
-
-type ImportDescriptorResponse = { success: true; result: boolean } | { success: false; error: ErrorDetails };
-
-type GetBalanceResponse = { success: true; result: number } | { success: false; error: ErrorDetails };
-
-type RescanBlockchainResponse =
-  | {
-      success: true;
-      startHeight: number;
-      stoptHeight: number;
-    }
-  | {
-      success: false;
-      startHeight: number;
-      error: ErrorDetails;
-    };
-
-type WalletAddress = {
-  address: string;
-  amount: number;
-  confirmations: number;
-  label: string;
-  txids: string[];
-};
-
-type ListWalletAddressesResponse = { success: true; result: WalletAddress[] } | { success: false; error: ErrorDetails };
-
-type ListAddressUTXOResponse = { success: true; result: PaymentUtxo[] } | { success: false; error: ErrorDetails };
-
-type ScanTxOutSetResponse = { success: true; result: { progress: number } } | { success: false; error: ErrorDetails };
-
-type GetBlockAtTimeApproximateResponse =
-  | { success: true; result: BlockHeader }
-  | { success: false; error: ErrorDetails };
-
-type BroadcastRevealTransactionResponse = { result: string; success: true } | { success: false; error: ErrorDetails };
 
 export function buildRpcUrlForWallet(walletName: string) {
   if (!walletName) {

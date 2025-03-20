@@ -4,21 +4,7 @@ import { hex } from '@scure/base';
 import { detectContentType } from './utils/helpers';
 import { getPrivateKey, getSchnorrPublicKey } from './utils/walletUtils';
 import { DUST_LIMIT, BTC_SIGNER_NETWORK } from './config/network';
-
-interface InscriptionResult {
-  fileSize: number;
-  tempPrivateKey: string;
-  address: string;
-  requiredAmount: string;
-  createRevealTx: (txid: string, index: number, amount: bigint | number) => string;
-}
-
-interface InscriptionData {
-  tags: {
-    contentType: string;
-  };
-  body: Uint8Array;
-}
+import { InscriptionResult, InscriptionData } from './types';
 
 export function createInscription(
   fileContent: Uint8Array,

@@ -10,18 +10,12 @@ import * as helpers from './helpers';
 import ECPairFactory from 'ecpair';
 import * as tinysecp from 'tiny-secp256k1';
 import { IS_TESTNET } from '../config/network';
+import { type KeyPair, type InscriptionData } from '../types';
 
 const ECPair = ECPairFactory(tinysecp);
 export const network = IS_TESTNET ? bitcoin.networks.testnet : bitcoin.networks.bitcoin;
 
 bitcoin.initEccLib(tinysecp);
-
-// Type definitions
-interface KeyPair {
-  raw: Uint8Array;
-  wif: string;
-  hex: string;
-}
 
 export function validateWIFNetwork(wifString: string, network: string): boolean {
   const mainnetRegex = /^[5KL][1-9A-HJ-NP-Za-km-z]{50,51}$/;
@@ -174,14 +168,6 @@ export function getPrivateKey(existingPrivKey?: string | Uint8Array | null): Key
   }
 
   return generateNetworkKeyPair(IS_TESTNET ? 'testnet' : 'mainnet');
-}
-
-// temporary helper to create the same address for the same inscription
-interface InscriptionData {
-  tags: {
-    contentType: string;
-  };
-  body: Uint8Array;
 }
 
 // temporary helper to create the same address for the same inscription

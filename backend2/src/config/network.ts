@@ -1,5 +1,4 @@
 import { TEST_NETWORK, NETWORK } from '@scure/btc-signer';
-// import 'dotenv/config';
 
 import dotenv from 'dotenv';
 dotenv.config({ path: `${__dirname}/../../.env` }); // Adjust path if needed

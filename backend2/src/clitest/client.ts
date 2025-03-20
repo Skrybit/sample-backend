@@ -2,7 +2,7 @@ import FormData from 'form-data';
 import axios from 'axios';
 import fs from 'fs';
 import { BASE_URL } from '../config/network';
-import { type ErrorDetails, getErrorDetails } from '../services/rpcApi';
+import { getErrorDetails } from '../services/rpcApi';
 import {
   CreateCommitPayload,
   CreateCommitResponse,
@@ -11,6 +11,8 @@ import {
   CreateRevealPayload,
   CreateRevealResponse,
   BroadcastRevealResponse,
+  RpcRes as ApiRes,
+  RpcErrRes as ApiErrRes,
 } from '../types';
 
 // backend api url
@@ -19,16 +21,6 @@ console.log('Client BASE_URL', BASE_URL);
 const handleNonRpcError = (error: unknown) => {
   console.error('❌ Error:', error instanceof Error ? error.message : error);
   throw error;
-};
-
-type ApiRes<T> = {
-  success: true;
-  result: T;
-};
-
-type ApiErrRes = {
-  success: false;
-  error: ErrorDetails;
 };
 
 async function handleError<T>(error: T): Promise<ApiErrRes> {

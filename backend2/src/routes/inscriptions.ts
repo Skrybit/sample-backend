@@ -1,4 +1,5 @@
 import { NextFunction, Router, Request, Response } from 'express';
+import fs from 'fs';
 import { upload } from '../middleware/upload';
 import { createInscription } from '../createInscription';
 import { DUST_LIMIT } from '../config/network';
@@ -13,12 +14,10 @@ import {
   InscriptionResponse,
   ApiErrorResponse,
   CreateCommitResponse,
+  type ErrorDetails,
 } from '../types';
 
-import fs from 'fs';
-
 import { createWalletAndAddressDescriptor } from '../services/utils';
-import { ErrorDetails } from '../services/rpcApi';
 
 const router = Router();
 

@@ -25,13 +25,13 @@ const router = Router();
 
 function getBaseResponse(inscription: any, id: number | bigint, recipient: string, sender: string) {
   return {
-    inscriptionId: id,
-    fileSizeInBytes: inscription.fileSize,
-    paymentAddress: inscription.address,
-    recipientAddress: recipient,
-    senderAddress: sender,
-    requiredAmountInSats: inscription.requiredAmount,
-    commmitCreationSuccessful: true,
+    inscription_id: id,
+    file_size_in_bytes: inscription.fileSize,
+    payment_address: inscription.address,
+    recipient_address: recipient,
+    sender_address: sender,
+    required_amount_in_sats: inscription.requiredAmount,
+    commmit_creation_successful: true,
   };
 }
 
@@ -80,19 +80,19 @@ function formatInscriptionResponse(inscription: Inscription) {
  *             schema:
  *               type: object
  *               properties:
- *                 inscriptionId:
+ *                 inscription_id:
  *                   type: integer
- *                 fileSizeInBytes:
+ *                 file_size_in_bytes:
  *                   type: integer
- *                 paymentAddress:
+ *                 payment_address:
  *                   type: string
- *                 recipientAddress:
+ *                 recipient_address:
  *                   type: string
- *                 senderAddress:
+ *                 sender_address:
  *                   type: string
- *                 requiredAmountInSats:
+ *                 required_amount_in_sats:
  *                   type: integer
- *                 commmitCreationSuccessful:
+ *                 commmit_creation_successful:
  *                   type: boolean
  *       400:
  *         description: Invalid input
@@ -109,7 +109,7 @@ router.post(
     res: Response<
       | CreateCommitResponse
       | ApiErrorResponse
-      | { inscriptionId: number | bigint; paymentAddress: string; errorDetails: ErrorDetails }
+      | { inscription_id: number | bigint; payment_address: string; error_details: ErrorDetails }
     >,
   ) => {
     try {
@@ -143,9 +143,9 @@ router.post(
 
       if (!broadcastResult.success) {
         return res.json({
-          inscriptionId: lastInsertRowid,
-          paymentAddress: inscription.address,
-          errorDetails: broadcastResult.error,
+          inscription_id: lastInsertRowid,
+          payment_address: inscription.address,
+          error_details: broadcastResult.error,
         });
       }
 

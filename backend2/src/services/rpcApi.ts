@@ -1,5 +1,6 @@
 import axios from 'axios';
 import * as dateUtils from '../utils/dateUtils';
+import { type PaymentUtxo } from '../types';
 import { RPC_CONFIG, RPC_URL, RPC_TIMEOUT } from '../config/network';
 
 type BlockHeader = {
@@ -93,17 +94,7 @@ type WalletAddress = {
 
 type ListWalletAddressesResponse = { success: true; result: WalletAddress[] } | { success: false; error: ErrorDetails };
 
-export type AddressUtxo = {
-  txid: string;
-  vout: number;
-  address: string;
-  amount: number;
-  confirmations: number;
-  scriptPubKey: string;
-  spendable: boolean;
-};
-
-type ListAddressUTXOResponse = { success: true; result: AddressUtxo[] } | { success: false; error: ErrorDetails };
+type ListAddressUTXOResponse = { success: true; result: PaymentUtxo[] } | { success: false; error: ErrorDetails };
 
 type ScanTxOutSetResponse = { success: true; result: { progress: number } } | { success: false; error: ErrorDetails };
 

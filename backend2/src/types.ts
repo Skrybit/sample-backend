@@ -13,12 +13,7 @@ export interface Inscription {
   status: 'pending' | 'paid' | 'reveal_ready' | 'completed';
 }
 
-// export interface CreateCommitBody {
-//   recipientAddress: string;
-//   feeRate: string;
-//   senderAddress: string;
-// }
-
+// ??
 export interface CreateRevealBody {
   inscriptionId: string;
   commitTxId: string;
@@ -27,12 +22,13 @@ export interface CreateRevealBody {
 }
 
 export interface PaymentStatusBody {
-  address: string;
-  required_amount: string;
+  payment_address: string;
+  required_amount_in_sats: string;
   sender_address: string;
   id: string;
 }
 
+// ?
 export interface BroadcastRevealTxBody {
   txHex: string;
   id: string;
@@ -56,7 +52,7 @@ export interface InscriptionResponse {
   created_at: string;
 }
 
-//
+// we can leave it, it for request
 export interface CreateCommitPayload {
   recipientAddress: string;
   senderAddress: string;
@@ -65,41 +61,23 @@ export interface CreateCommitPayload {
 }
 
 export interface CreateCommitResponse {
-  inscriptionId: number | bigint;
-  fileSizeInBytes: number;
-  paymentAddress: string;
-  recipientAddress: string;
-  senderAddress: string;
-  requiredAmountInSats: string;
-  commmitCreationSuccessful: boolean;
+  inscription_id: number | bigint;
+  file_size_in_bytes: number;
+  payment_address: string;
+  recipient_address: string;
+  sender_address: string;
+  required_amount_in_sats: string;
+  commmit_creation_successful: boolean;
 }
-
-// export interface InscriptionItem {
-//   id: number;
-//   address: string;
-//   required_amount: number;
-//   status: string;
-//   commit_tx_id?: string | null;
-//   sender_address: string;
-//   recipient_address: string;
-//   created_at: string;
-// }
-
-// export interface InscriptionStatus {
-//   id: number;
-//   address: string;
-//   required_amount: number;
-//   status: string;
-//   commit_tx_id?: string | null;
-//   created_at: string;
-// }
 
 export interface InscriptionPayment {
   is_paid: boolean;
   id: number;
-  address: string;
-  amount: number;
+  payment_address: string;
+  required_amount_in_sats: number;
   sender_address: string;
+  status: 'pending' | 'paid' | 'reveal_ready' | 'completed';
+  payment_utxo: PaymentUtxo | null;
 }
 
 export type PaymentUtxo = {
@@ -113,14 +91,7 @@ export type PaymentUtxo = {
   spendable: boolean;
 };
 
-export type InscriptionUtxo = {
-  id: number;
-  address: string;
-  amount: number;
-  sender_address: string;
-  paymentUtxo: PaymentUtxo;
-};
-
+// payload
 export interface CreateRevealPayload {
   inscriptionId: string;
   commitTxId: string;
@@ -129,6 +100,7 @@ export interface CreateRevealPayload {
   filePath: string;
 }
 
+// change
 export interface CreateRevealResponse {
   revealTxHex: string;
   debug: {
@@ -139,6 +111,7 @@ export interface CreateRevealResponse {
   };
 }
 
+// change
 export interface BroadcastRevealResponse {
   id: number;
   txId: string | null;

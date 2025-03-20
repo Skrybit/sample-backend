@@ -13,8 +13,9 @@ import {
   createWallet,
   broadcastRevealTransaction,
   type ErrorDetails,
-  type AddressUtxo,
 } from './rpcApi';
+
+import { PaymentUtxo } from '../types';
 
 type UpdateInscriptionPaymentFn = (status: string, id: number) => RunResult;
 
@@ -112,7 +113,7 @@ export async function getPaymentUtxo(
   inscriptionId: number,
   address: string,
   amountInSats: number,
-): Promise<{ success: true; result: AddressUtxo } | { success: false; error: ErrorDetails }> {
+): Promise<{ success: true; result: PaymentUtxo } | { success: false; error: ErrorDetails }> {
   console.log(`Checking paymentUtxo for ${address}`);
 
   const walletName = `insc_wallet_${inscriptionId}`;

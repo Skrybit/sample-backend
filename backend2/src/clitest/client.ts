@@ -3,7 +3,7 @@ import axios from 'axios';
 import fs from 'fs';
 import { BASE_URL } from '../config/network';
 import { type ErrorDetails, getErrorDetails } from '../services/rpcApi';
-import { CreateCommitPayload, CreateCommitResponse, InscriptionResponse } from '../types';
+import { CreateCommitPayload, CreateCommitResponse, InscriptionResponse, InscriptionPayment } from '../types';
 
 // backend api url
 console.log('Client BASE_URL', BASE_URL);
@@ -81,34 +81,36 @@ export async function getInscription(inscriptionId: number): Promise<ApiRes<Insc
   }
 }
 
-// export async function isInscriptionPaid(
-//   address: string,
-//   id: string,
-//   senderAddress: string,
-//   requiredAmountSat: string,
-// ): Promise<ApiRes<InscriptionPayment> | ApiErrRes> {
-//   try {
-//     const response = await axios.post<InscriptionPayment>(
-//       `${BASE_URL}/payments/status`,
-//       {
-//         id,
-//         address,
-//         sender_address: senderAddress,
-//         required_amount: requiredAmountSat,
-//       },
-//       {
-//         headers: {
-//           'Content-Type': 'application/json',
-//           Accept: 'application/json',
-//         },
-//       },
-//     );
-//
-//     return { success: true, result: response.data };
-//   } catch (err) {
-//     return handleError(err);
-//   }
-// }
+export async function isInscriptionPaid(
+  paymentAddress: string,
+  id: string,
+  senderAddress: string,
+  requiredAmountSat: string,
+): Promise<ApiRes<InscriptionPayment> | ApiErrRes> {
+  try {
+    const url = `${BASE_URL}/payments/status`;
+
+    const response = await axios.post<InscriptionPayment>(
+      url,
+      {
+        id,
+        payment_address: paymentAddress,
+        sender_address: senderAddress,
+        required_amount_in_sats: requiredAmountSat,
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+      },
+    );
+
+    return { success: true, result: response.data };
+  } catch (err) {
+    return handleError(err);
+  }
+}
 
 // export async function getInscriptionPaymentUtxo(
 //   address: string,

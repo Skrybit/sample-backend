@@ -2,8 +2,8 @@ import {
   createCommit,
   getSenderInscriptions,
   getInscription,
+  isInscriptionPaid,
   // createReveal,
-  // isInscriptionPaid,
   // getInscriptionPaymentUtxo,
   // broadcastRevealTx,
 } from './client';
@@ -30,9 +30,9 @@ const createCommitStep = async () => {
   }
 
   console.log('Commit Transaction Created:');
-  console.log('Fund this address:', commitResult.result.paymentAddress);
-  console.log('Required amount:', commitResult.result.requiredAmountInSats);
-  console.log('Inscription ID:', commitResult.result.inscriptionId);
+  console.log('Fund this address:', commitResult.result.payment_address);
+  console.log('Required amount:', commitResult.result.required_amount_in_sats);
+  console.log('Inscription ID:', commitResult.result.inscription_id);
 
   /**
    * EXAMPLE
@@ -129,17 +129,15 @@ const checkInscriptionStep = async () => {
 const checkInscriptionPaymentStep = async () => {
   // 4. Check inscription payment (would trigger status update on remote end if paid)
 
-  const address = 'tb1pve4cpn4ewscr7mzdp9zw4x5u67xkftkvx5zur4zwxvshw5r8vc0suz4zgm';
-  const id = '38';
+  const address = 'tb1pa8payygrstqn3zytuu30pzj7yyt6l6zw5hhpyr5d2pznh5f9hcgq8g3t4k';
+  const id = '52';
 
-  // const address = 'bc1plmxjy6yx993hs6h9vu2z36agt82m77pmkxfg30h46282pw8gn66sx4z32d';
-  // const id = '44';
   const requiredAmount = '155';
 
   const senderAddress = SENDER_ADDRESS;
 
-  // const isInscriptiionPaidResponse = await isInscriptionPaid(address, id, senderAddress, requiredAmount);
-  // console.log('isInscriptiionPaidResponse', isInscriptiionPaidResponse);
+  const isInscriptiionPaidResponse = await isInscriptionPaid(address, id, senderAddress, requiredAmount);
+  console.log('isInscriptiionPaidResponse', isInscriptiionPaidResponse);
 
   /*
    * 
@@ -298,10 +296,11 @@ async function main() {
     // await getSenderInscriptionsStep();
     //
     // 3. Check inscription status and details
-    await checkInscriptionStep();
+    // await checkInscriptionStep();
     //
     // 4. Check inscription payment (would trigger status update on remote end if paid)
-    // await checkInscriptionPaymentStep();
+    // and return UTXO if it is there
+    await checkInscriptionPaymentStep();
     //
     // 5. Check inscription payment UTXO
     // await getInscriptionUtxoStep();

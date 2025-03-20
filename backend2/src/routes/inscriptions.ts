@@ -51,53 +51,51 @@ function formatInscriptionResponse(inscription: Inscription) {
 /**
  * @swagger
  * /inscriptions/create-commit:
- *    post:
+ *   post:
  *     tags: [Inscriptions]
  *     summary: Create a new commit transaction for inscription
+ *     consumes:
+ *       - multipart/form-data
+ *     parameters:
+ *       - in: formData
+ *         name: file
+ *         type: file
+ *         description: The file to inscribe
+ *         required: true
  *     requestBody:
- *       required: true
  *       content:
  *         multipart/form-data:
  *           schema:
  *             type: object
  *             properties:
- *               file:
+ *               recipient_address:
  *                 type: string
- *                 format: binary
- *               recipientAddress:
+ *               fee_rate:
  *                 type: string
- *               feeRate:
+ *               sender_address:
  *                 type: string
- *               senderAddress:
- *                 type: string
+ *             required:
+ *               - recipient_address
+ *               - fee_rate
  *     responses:
  *       200:
- *         description: Commit transaction created
+ *         description: Commit created successfully
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 inscription_id:
- *                   type: integer
- *                 file_size_in_bytes:
- *                   type: integer
- *                 payment_address:
- *                   type: string
- *                 recipient_address:
- *                   type: string
- *                 sender_address:
- *                   type: string
- *                 required_amount_in_sats:
- *                   type: integer
- *                 commmit_creation_successful:
- *                   type: boolean
+ *               oneOf:
+ *                 - $ref: '#/components/schemas/CreateCommitResponse'
+ *                 - type: object
+ *                   properties:
+ *                     inscription_id: { type: 'integer', format: 'int64' }
+ *                     payment_address: { type: 'string' }
+ *                     error_details: { $ref: '#/components/schemas/ErrorDetails' }
  *       400:
  *         description: Invalid input
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  */
 router.post(
   '/create-commit',
@@ -172,13 +170,14 @@ router.post(
  * /inscriptions/sender/{sender_address}:
  *   get:
  *     tags: [Inscriptions]
- *     summary: Get all inscriptions by sender address
+ *     summary: Get all inscriptions for a sender address
  *     parameters:
  *       - in: path
  *         name: sender_address
  *         schema:
  *           type: string
  *         required: true
+ *         description: Bitcoin sender address
  *     responses:
  *       200:
  *         description: List of inscriptions
@@ -189,11 +188,11 @@ router.post(
  *               items:
  *                 $ref: '#/components/schemas/InscriptionResponse'
  *       400:
- *         description: Inscriptions not found
+ *         description: Error retrieving inscriptions
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  */
 router.get(
   '/sender/:sender_address',
@@ -227,8 +226,9 @@ router.get(
  *       - in: path
  *         name: id
  *         schema:
- *           type: integer
+ *           type: string
  *         required: true
+ *         description: Numeric ID of the inscription
  *     responses:
  *       200:
  *         description: Inscription details
@@ -237,11 +237,11 @@ router.get(
  *             schema:
  *               $ref: '#/components/schemas/InscriptionResponse'
  *       400:
- *         description: Inscription not found or Invalid inscription ID
+ *         description: Invalid ID format or inscription not found
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  */
 router.get(
   '/:id',
@@ -268,53 +268,50 @@ router.get(
 
 /**
  * @swagger
-l* /inscriptions/create-reveal:
- *    post:
+ * /inscriptions/create-reveal:
+ *   post:
  *     tags: [Inscriptions]
- *     summary: Create a new commit transaction for inscription
+ *     summary: Create reveal transaction for an inscription
+ *     consumes:
+ *       - multipart/form-data
+ *     parameters:
+ *       - in: formData
+ *         name: file
+ *         type: file
+ *         description: The original inscription file
+ *         required: true
  *     requestBody:
- *       required: true
  *       content:
  *         multipart/form-data:
  *           schema:
  *             type: object
  *             properties:
- *               file:
+ *               inscription_id:
  *                 type: string
- *                 format: binary
- *               recipientAddress:
+ *               commit_tx_id:
  *                 type: string
- *               feeRate:
+ *               vout:
  *                 type: string
- *               senderAddress:
+ *               amount:
  *                 type: string
+ *             required:
+ *               - inscription_id
+ *               - commit_tx_id
+ *               - vout
+ *               - amount
  *     responses:
  *       200:
  *         description: Reveal transaction created
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 revealTxHex:
- *                   type: string
- *                 debug:
- *                   type: object
- *                   properties:
- *                     generatedAddress:
- *                       type: string
- *                     pubkey:
- *                       type: string
- *                     amount:
- *                       type: integer
- *                     fees:
- *                       type: integer
+ *               $ref: '#/components/schemas/CreateRevealResponse'
  *       400:
- *         description: Missing required parameter or inscription is not found
+ *         description: Invalid input or inscription not found
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  */
 router.post(
   '/create-reveal',

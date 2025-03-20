@@ -33,10 +33,6 @@ async function validatePaymentRequest(address: string, amount: string, sender: s
     return { error: { error: 'Sender address mismatch' } };
   }
 
-  // if (inscription.required_amount !== Number(amount)) {
-  //   return { error: { error: 'Amount mismatch' } };
-  // }
-
   if (inscription.address !== address.trim()) {
     return { error: { error: 'Address mismatch' } };
   }
@@ -66,49 +62,26 @@ function formatPaymentResponse(inscription: any) {
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - address
- *               - required_amount
- *               - sender_address
- *               - id
- *             properties:
- *               payment_address:
- *                 type: string
- *               required_amount_in_sats:
- *                 type: string
- *               sender_address:
- *                 type: string
- *               id:
- *                 type: string
+ *             $ref: '#/components/schemas/PaymentStatusBody'
  *     responses:
  *       200:
- *         description: UTXO details
+ *         description: Payment status retrieved
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 payment_Utxo:
- *                   $ref: '#/components/schemas/PaymentUtxo'
- *                 id:
- *                   type: integer
- *                 payment_address:
- *                   type: string
- *                 required_amount_in_sats:
- *                   type: integer
- *                 sender_address:
- *                   type: string
- *                 is_paid:
- *                   type: boolean
- *                 status:
- *                   type: string
+ *               oneOf:
+ *                 - $ref: '#/components/schemas/InscriptionPayment'
+ *                 - type: object
+ *                   properties:
+ *                     is_paid: { type: 'boolean' }
+ *                     error_details: { $ref: '#/components/schemas/ErrorDetails' }
+ *                     payment_utxo: { type: 'null' }
  *       400:
  *         description: Invalid input
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  */
 router.post(
   '/status',

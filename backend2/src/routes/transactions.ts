@@ -11,39 +11,35 @@ const router = Router();
  * /transactions/broadcast-reveal:
  *   post:
  *     tags: [Transactions]
- *     summary: Broadcast reveal transaction
+ *     summary: Broadcast a reveal transaction
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - txHex
- *               - id
- *             properties:
- *               txHex:
- *                 type: string
- *               id:
- *                 type: string
+ *             $ref: '#/components/schemas/BroadcastRevealTxBody'
  *     responses:
  *       200:
  *         description: Transaction broadcast result
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 txId:
- *                   type: string
- *                 id:
- *                   type: integer
+ *               oneOf:
+ *                 - $ref: '#/components/schemas/BroadcastRevealResponse'
+ *                 - type: object
+ *                   properties:
+ *                     inscription_id:
+ *                       type: string
+ *                     reveal_tx_id:
+ *                       type: 'null'
+ *                     error_details:
+ *                       $ref: '#/components/schemas/ErrorDetails'
  *       400:
- *         description: Missing required fields or inscription not found
+ *         description: Invalid input
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  */
 router.post(
   '/broadcast-reveal',

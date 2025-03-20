@@ -40,18 +40,3 @@ server.on('error', (err: NodeJS.ErrnoException) => {
   }
   process.exit(1);
 });
-
-// export default app;
-
-// app
-//   .listen(PORT, () => {
-//     console.log(`Server running on port ${PORT}`);
-//   })
-//   .on('error', (err: NodeJS.ErrnoException) => {
-//     if (err.code === 'EADDRINUSE') {
-//       console.error(`Port ${PORT} is already in use. Please try a different port.`);
-//     } else {
-//       console.error('Server error:', err);
-//     }
-//     process.exit(1);
-//   });

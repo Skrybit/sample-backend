@@ -67,6 +67,7 @@ export async function checkPaymentToAddress(
     console.log('err checkPaymentToAddress 4');
     return { success: false, error: balanceResult.error };
   }
+  console.log('balance ', balanceResult.result);
 
   const { result: balance } = balanceResult;
 
@@ -130,7 +131,6 @@ export async function getPaymentUtxo(
   const utxoList = utxoListResult.result;
 
   const paymentUtxo = utxoList.find((utxo) => {
-    console.dir(utxo);
     const utxoAmountInSats = btcToSats(utxo.amount);
 
     const isAddressOk = utxo.address === address;
@@ -159,6 +159,8 @@ export async function getPaymentUtxo(
       error: getErrorDetails(new Error('could not find a paymentUtxo with required criterias')),
     };
   }
+
+  console.log('getPaymentUtxo , found utxo successfully  ');
 
   return { success: true, result: paymentUtxo };
 }

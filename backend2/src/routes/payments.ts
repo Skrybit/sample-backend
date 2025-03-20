@@ -149,6 +149,7 @@ router.post(
 
       if (isPaid) {
         const utxoResult = await getPaymentUtxo(inscription.id, inscription.address, inscription.required_amount);
+        console.log('utxoResult isPaid. utxoResult is - ', utxoResult);
 
         if (!utxoResult.success) {
           return res.json({
@@ -158,7 +159,7 @@ router.post(
           });
         }
 
-        res.json({
+        return res.json({
           ...formatPaymentResponse(inscription),
           is_paid: true,
           payment_utxo: utxoResult.result,

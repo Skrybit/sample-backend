@@ -4,8 +4,7 @@ import {
   getInscription,
   isInscriptionPaid,
   createReveal,
-  // getInscriptionPaymentUtxo,
-  // broadcastRevealTx,
+  broadcastRevealTx,
 } from './client';
 import path from 'path';
 import { RECIPIENT_ADDRESS, SENDER_ADDRESS, FEE_RATE } from '../config/network';
@@ -210,7 +209,7 @@ paymentUtxoResponse {
 
 const getInscriptionRevealDetailsStep = async () => {
   // 6. After funding and confirmation, create reveal
-  const vout = 0;
+  const vout = 1;
   // const amount = 0.0000015; // 150
   const amount = 0.00001; // 1_000
 
@@ -248,12 +247,15 @@ const getInscriptionRevealDetailsStep = async () => {
 
 const broadcastRevealTxHexStep = async () => {
   // 7. Broadcast reveal transaction
-  const id = '44';
+  const id = '52';
   const revealTxHex =
-    '020000000001012b1f6607c1c32a022fa8b6e815c2141d90215aecc33b46d194c2898f36feb4460000000000ffffffff01d51600000000000016001476649a1a1cf948f43a50da902411e8a2a638612c0340ad18f6a2b5f4aa173b6898f33d903b7a91ea2be52a20df571c0f02e1dc97f466c94e192888e6936c2c46fbb5f7ea91a5b69a281a13dbe15e29bf610c165161b6b7207172065c1e7113ded3722575b1713f8d9c47340b422425274c3273a6d9308679ac0063036f7264010118746578742f706c61696e3b636861727365743d7574662d38004c70686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a6821c150929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac000000000';
+    '0200000000010129379c11b38a3fca866e06bff2871ffec9def93c8abdc66306f804050ed5ca830100000000ffffffff014d0300000000000016001452ac1f4f8ae669e8790d7b0054c9b8a3f356d2f203400a19ea4ae3bc7250542938c82be8edb847832a83e7abe0edd071dd4c77043b420abf0bae405a9d99ee3d6f3b5ae0a1b0408015731b2c806cefc9d553b3c6a242b720dd5929ce0ca2960cff119f167fa117336923f2459d57342af6a273b7a49455c3ac0063036f7264010118746578742f706c61696e3b636861727365743d7574662d38004c70686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a6821c050929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac000000000';
 
-  // const revealTxResult = await broadcastRevealTx(id, revealTxHex);
-  // console.log('\nReveal Transaction Broadcasted result:', revealTxResult);
+  const revealTxResult = await broadcastRevealTx(id, revealTxHex);
+  console.log('\nReveal Transaction Broadcasted result:', revealTxResult);
+  if (!revealTxResult.success) {
+    console.log('\nReveal Transaction Broadcasted result:', revealTxResult.error);
+  }
 
   /*
    *
@@ -303,10 +305,10 @@ async function main() {
     // await checkInscriptionPaymentStep();
     //
     // 5. After funding and confirmation, create reveal
-    await getInscriptionRevealDetailsStep();
+    // await getInscriptionRevealDetailsStep();
     //
     // 6. Broadcast reveal transaction
-    // await broadcastRevealTxHexStep();
+    await broadcastRevealTxHexStep();
     //
   } catch (error) {
     console.error('Error:', error instanceof Error ? error.message : 'Unknown error');

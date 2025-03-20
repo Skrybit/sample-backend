@@ -10,6 +10,7 @@ import {
   InscriptionPayment,
   CreateRevealPayload,
   CreateRevealResponse,
+  BroadcastRevealResponse,
 } from '../types';
 
 // backend api url
@@ -30,8 +31,9 @@ type ApiErrRes = {
   error: ErrorDetails;
 };
 
-async function handleError<T>(error: any): Promise<ApiErrRes> {
+async function handleError<T>(error: T): Promise<ApiErrRes> {
   if (!axios.isAxiosError(error)) {
+    console.log('non axios error');
     handleNonRpcError(error);
   }
 
@@ -145,27 +147,29 @@ export async function createReveal({
   }
 }
 
-// export async function broadcastRevealTx(
-//   id: string,
-//   txHex: string,
-// ): Promise<ApiRes<BroadcastRevealResponse> | ApiErrRes> {
-//   try {
-//     const response = await axios.post<BroadcastRevealResponse>(
-//       `${BASE_URL}/broadcast-reveal-tx`,
-//       {
-//         id,
-//         txHex,
-//       },
-//       {
-//         headers: {
-//           'Content-Type': 'application/json',
-//           Accept: 'application/json',
-//         },
-//       },
-//     );
-//
-//     return { success: true, result: response.data };
-//   } catch (err) {
-//     return handleError(err);
-//   }
-// }
+export async function broadcastRevealTx(
+  id: string,
+  txHex: string,
+): Promise<ApiRes<BroadcastRevealResponse> | ApiErrRes> {
+  const url = `${BASE_URL}/transactions/broadcast-reveal`;
+
+  try {
+    const response = await axios.post<BroadcastRevealResponse>(
+      url,
+      {
+        inscription_id: id,
+        reveal_tx_hex: txHex,
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+      },
+    );
+
+    return { success: true, result: response.data };
+  } catch (err) {
+    return handleError(err);
+  }
+}

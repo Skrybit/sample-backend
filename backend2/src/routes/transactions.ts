@@ -1,7 +1,8 @@
-import { Router } from 'express';
+import { NextFunction, Router, Request, Response } from 'express';
+import { ErrorDetails } from '../services/rpcApi';
 import { getInscription, updateInscription } from '../db/sqlite';
 import { broadcastTx } from '../services/utils';
-import { BroadcastRevealTxBody } from '../types';
+import { ApiErrorResponse, BroadcastRevealResponse, BroadcastRevealTxBody } from '../types';
 import { Inscription } from '../types';
 
 const router = Router();
@@ -45,46 +46,63 @@ const router = Router();
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post('/broadcast-reveal', async (req, res) => {
-  try {
-    const { txHex, id } = req.body as BroadcastRevealTxBody;
+router.post(
+  '/broadcast-reveal',
+  async (
+    req: Request,
+    res: Response<
+      | BroadcastRevealResponse
+      | ApiErrorResponse
+      | {
+          inscription_id: string;
+          reveal_tx_id: null;
+          error_details: ErrorDetails;
+        }
+    >,
+  ) => {
+    try {
+      const { reveal_tx_hex: txHex, inscription_id: id } = req.body as BroadcastRevealTxBody;
 
-    if (!txHex || !id) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
+      if (!txHex || !id) {
+        return res.status(400).json({ error: 'Missing required fields' });
+      }
 
-    const inscriptionId = parseInt(id);
+      const inscriptionId = parseInt(id);
 
-    if (isNaN(inscriptionId)) {
-      return res.status(400).json({ error: 'Invalid inscription ID format' });
-    }
+      if (isNaN(inscriptionId)) {
+        return res.status(400).json({ error: 'Invalid inscription ID format' });
+      }
 
-    const inscription = getInscription.get(inscriptionId) as Inscription | undefined;
+      const inscription = getInscription.get(inscriptionId) as Inscription | undefined;
 
-    if (!inscription) {
-      return res.status(400).json({ error: 'Inscription not found' });
-    }
+      if (!inscription) {
+        return res.status(400).json({ error: 'Inscription not found' });
+      }
 
-    // Broadcast transaction
-    const broadcastResult = await broadcastTx(inscriptionId, txHex, inscription.reveal_tx_hex);
+      if (!inscription.reveal_tx_hex || inscription.reveal_tx_hex !== txHex) {
+        return res.status(400).json({ error: 'Wrong reveal_tx_hex or inscription has no reveal_tx_hex' });
+      }
 
-    if (!broadcastResult.success) {
-      return res.status(400).json({
-        tx_id: null,
-        inscription_id: inscriptionId,
-        error_details: broadcastResult.error,
+      const broadcastResult = await broadcastTx(inscriptionId, txHex, inscription.reveal_tx_hex);
+
+      if (!broadcastResult.success) {
+        return res.status(400).json({
+          reveal_tx_id: null,
+          inscription_id: inscriptionId + '',
+          error_details: broadcastResult.error,
+        });
+      }
+
+      updateInscription.run(inscription.commit_tx_id!, inscription.reveal_tx_hex!, 'completed', inscriptionId);
+
+      res.json({
+        reveal_tx_id: broadcastResult.result,
+        inscription_id: inscriptionId + '',
       });
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : 'Broadcast failed' });
     }
-
-    updateInscription.run(inscription.commit_tx_id!, inscription.reveal_tx_hex!, 'completed', inscriptionId);
-
-    res.json({
-      tx_id: broadcastResult.result,
-      id: inscriptionId,
-    });
-  } catch (error) {
-    res.status(400).json({ error: error instanceof Error ? error.message : 'Broadcast failed' });
-  }
-});
+  },
+);
 
 export default router;

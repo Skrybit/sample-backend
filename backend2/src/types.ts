@@ -20,12 +20,6 @@ export interface PaymentStatusBody {
   id: string;
 }
 
-// ?
-export interface BroadcastRevealTxBody {
-  txHex: string;
-  id: string;
-}
-
 export interface ApiErrorResponse {
   error: string;
   details?: unknown;
@@ -106,8 +100,12 @@ export interface CreateRevealResponse {
   };
 }
 
-// change
+export interface BroadcastRevealTxBody {
+  inscription_id: string;
+  reveal_tx_hex: string;
+}
+
 export interface BroadcastRevealResponse {
-  id: number;
-  txId: string | null;
+  inscription_id: string;
+  reveal_tx_id: string | null;
 }

@@ -1,4 +1,4 @@
-import { NextFunction, Router } from 'express';
+import { NextFunction, Router, Request, Response } from 'express';
 import { upload } from '../middleware/upload';
 import { createInscription } from '../createInscription';
 import { DUST_LIMIT } from '../config/network';
@@ -14,8 +14,6 @@ import {
   ApiErrorResponse,
   CreateCommitResponse,
 } from '../types';
-
-import { Request, Response } from 'express';
 
 import fs from 'fs';
 

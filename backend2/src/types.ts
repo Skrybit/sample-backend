@@ -13,14 +13,6 @@ export interface Inscription {
   status: 'pending' | 'paid' | 'reveal_ready' | 'completed';
 }
 
-// ??
-export interface CreateRevealBody {
-  inscriptionId: string;
-  commitTxId: string;
-  vout: string;
-  amount: string;
-}
-
 export interface PaymentStatusBody {
   payment_address: string;
   required_amount_in_sats: string;
@@ -91,23 +83,26 @@ export type PaymentUtxo = {
   spendable: boolean;
 };
 
-// payload
 export interface CreateRevealPayload {
-  inscriptionId: string;
-  commitTxId: string;
-  vout: number;
-  amount: number;
-  filePath: string;
+  inscription_id: string;
+  commit_tx_id: string;
+  vout: string;
+  amount: string;
+  file_path: string;
 }
 
-// change
 export interface CreateRevealResponse {
-  revealTxHex: string;
+  inscription_id: string;
+  commit_tx_id: string;
+  reveal_tx_hex: string;
   debug: {
-    generatedAddress: string;
-    pubkey: string;
-    amount: number;
-    fees: bigint;
+    payment_address: string;
+    payment_pubkey: string;
+    required_amount_in_sats: string;
+    given_utxo_amount_in_sats: string;
+    sender_address: string;
+    recipient_address: string;
+    fees: string;
   };
 }
 

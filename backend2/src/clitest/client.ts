@@ -3,7 +3,14 @@ import axios from 'axios';
 import fs from 'fs';
 import { BASE_URL } from '../config/network';
 import { type ErrorDetails, getErrorDetails } from '../services/rpcApi';
-import { CreateCommitPayload, CreateCommitResponse, InscriptionResponse, InscriptionPayment } from '../types';
+import {
+  CreateCommitPayload,
+  CreateCommitResponse,
+  InscriptionResponse,
+  InscriptionPayment,
+  CreateRevealPayload,
+  CreateRevealResponse,
+} from '../types';
 
 // backend api url
 console.log('Client BASE_URL', BASE_URL);
@@ -112,59 +119,31 @@ export async function isInscriptionPaid(
   }
 }
 
-// export async function getInscriptionPaymentUtxo(
-//   address: string,
-//   id: string,
-//   senderAddress: string,
-//   requiredAmountSat: string,
-// ): Promise<ApiRes<InscriptionUtxo> | ApiErrRes> {
-//   try {
-//     const response = await axios.post<InscriptionUtxo>(
-//       `${BASE_URL}/payments/utxo`,
-//       {
-//         id,
-//         address,
-//         sender_address: senderAddress,
-//         required_amount: requiredAmountSat,
-//       },
-//       {
-//         headers: {
-//           'Content-Type': 'application/json',
-//           Accept: 'application/json',
-//         },
-//       },
-//     );
-//
-//     return { success: true, result: response.data };
-//   } catch (err) {
-//     return handleError(err);
-//   }
-// }
+export async function createReveal({
+  inscription_id,
+  commit_tx_id,
+  vout,
+  amount,
+  file_path,
+}: CreateRevealPayload): Promise<ApiRes<CreateRevealResponse> | ApiErrRes> {
+  const url = `${BASE_URL}/inscriptions/create-reveal`;
+  try {
+    const form = new FormData();
+    form.append('file', fs.createReadStream(file_path));
+    form.append('inscription_id', inscription_id);
+    form.append('commit_tx_id', commit_tx_id);
+    form.append('vout', vout);
+    form.append('amount', amount);
 
-// export async function createReveal({
-//   inscriptionId,
-//   commitTxId,
-//   vout,
-//   amount,
-//   filePath,
-// }: CreateRevealPayload): Promise<ApiRes<CreateRevealResponse> | ApiErrRes> {
-//   try {
-//     const form = new FormData();
-//     form.append('file', fs.createReadStream(filePath));
-//     form.append('inscriptionId', inscriptionId);
-//     form.append('commitTxId', commitTxId);
-//     form.append('vout', vout.toString());
-//     form.append('amount', amount.toString());
-//
-//     const response = await axios.post<CreateRevealResponse>(`${BASE_URL}/create-reveal`, form, {
-//       headers: form.getHeaders(),
-//     });
-//
-//     return { success: true, result: response.data };
-//   } catch (err) {
-//     return handleError(err);
-//   }
-// }
+    const response = await axios.post<CreateRevealResponse>(url, form, {
+      headers: form.getHeaders(),
+    });
+
+    return { success: true, result: response.data };
+  } catch (err) {
+    return handleError(err);
+  }
+}
 
 // export async function broadcastRevealTx(
 //   id: string,

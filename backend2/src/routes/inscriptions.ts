@@ -7,7 +7,8 @@ import { getUTCTimestampInSec, timestampToDateString } from '../utils/dateUtils'
 import { insertInscription, getInscription, getInscriptionBySender, updateInscription } from '../db/sqlite';
 import {
   Inscription,
-  CreateRevealBody,
+  CreateRevealPayload,
+  CreateRevealResponse,
   CreateCommitPayload,
   InscriptionResponse,
   ApiErrorResponse,
@@ -266,7 +267,7 @@ router.get(
 
 /**
  * @swagger
- * /insctioptions/create-reveal:
+l* /inscriptions/create-reveal:
  *    post:
  *     tags: [Inscriptions]
  *     summary: Create a new commit transaction for inscription
@@ -314,53 +315,61 @@ router.get(
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post('/create-reveal', upload.single('file'), async (req, res, next) => {
-  try {
-    const { inscriptionId, commitTxId, vout, amount } = req.body as CreateRevealBody;
+router.post(
+  '/create-reveal',
+  upload.single('file'),
+  async (req: Request, res: Response<CreateRevealResponse | ApiErrorResponse>) => {
+    try {
+      const { inscription_id: inscriptionId, commit_tx_id: commitTxId, vout, amount } = req.body as CreateRevealPayload;
 
-    if (!req.file || !inscriptionId || !commitTxId || vout === undefined || !amount) {
-      return res.status(400).json({ error: 'Missing required parameters' });
+      if (!req.file || !inscriptionId || !commitTxId || vout === undefined || !amount) {
+        return res.status(400).json({ error: 'Missing required parameters' });
+      }
+
+      const inscription = getInscription.get(parseInt(inscriptionId)) as Inscription;
+
+      if (!inscription) {
+        return res.status(400).json({ error: 'Inscription not found' });
+      }
+
+      const fileBuffer = fs.readFileSync(req.file.path);
+
+      const revealInscription = createInscription(
+        fileBuffer,
+        inscription.fee_rate,
+        inscription.recipient_address,
+        inscription.temp_private_key,
+      );
+
+      const revealTx = revealInscription.createRevealTx(commitTxId, parseInt(vout), parseInt(amount));
+
+      updateInscription.run(commitTxId.trim(), revealTx, 'reveal_ready', Number(inscriptionId));
+
+      const privKeyObj = getPrivateKey(inscription.temp_private_key);
+      const pubkey = getPublicKeyFromWif(privKeyObj.wif);
+
+      res.json({
+        inscription_id: inscription.id + '',
+        commit_tx_id: commitTxId.trim(),
+        reveal_tx_hex: revealTx,
+        debug: {
+          payment_address: revealInscription.address,
+          payment_pubkey: pubkey.hex,
+          required_amount_in_sats: inscription.required_amount + '',
+          given_utxo_amount_in_sats: amount,
+          sender_address: inscription.sender_address,
+          recipient_address: inscription.recipient_address,
+          fees: `${BigInt(parseInt(amount)) - DUST_LIMIT}`,
+        },
+      });
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : 'Error creating reveal transaction' });
+    } finally {
+      if (req.file?.path) {
+        fs.unlinkSync(req.file.path);
+      }
     }
-
-    const inscription = getInscription.get(parseInt(inscriptionId)) as Inscription;
-
-    if (!inscription) {
-      return res.status(400).json({ error: 'Inscription not found' });
-    }
-
-    const fileBuffer = req.file.buffer;
-    const revealInscription = createInscription(
-      fileBuffer,
-      inscription.fee_rate,
-      inscription.recipient_address,
-      inscription.temp_private_key,
-    );
-
-    const revealTx = revealInscription.createRevealTx(commitTxId, parseInt(vout), parseInt(amount));
-
-    const updatedInscription = updateInscription.run(commitTxId, revealTx, 'reveal_ready', Number(inscriptionId));
-    console.log('updatedInscription result ', updatedInscription);
-
-    const privKeyObj = getPrivateKey(inscription.temp_private_key);
-    const pubkey = getPublicKeyFromWif(privKeyObj.wif);
-
-    res.json({
-      revealTxHex: revealTx,
-      inscription: formatInscriptionResponse(updatedInscription as unknown as Inscription),
-      debug: {
-        generatedAddress: revealInscription.address,
-        pubkey: pubkey.hex,
-        amount: parseInt(amount),
-        fees: BigInt(parseInt(amount)) - DUST_LIMIT,
-      },
-    });
-  } catch (error) {
-    res.status(400).json({ error: error instanceof Error ? error.message : 'Error creating reveal transaction' });
-  } finally {
-    if (req.file?.path) {
-      fs.unlinkSync(req.file.path);
-    }
-  }
-});
+  },
+);
 
 export default router;

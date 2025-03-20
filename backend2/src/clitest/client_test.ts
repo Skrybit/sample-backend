@@ -3,7 +3,7 @@ import {
   getSenderInscriptions,
   getInscription,
   isInscriptionPaid,
-  // createReveal,
+  createReveal,
   // getInscriptionPaymentUtxo,
   // broadcastRevealTx,
 } from './client';
@@ -212,22 +212,22 @@ const getInscriptionRevealDetailsStep = async () => {
   // 6. After funding and confirmation, create reveal
   const vout = 0;
   // const amount = 0.0000015; // 150
-  const amount = 0.00006; // 1_000
+  const amount = 0.00001; // 1_000
 
-  const id = '44';
-  const paymentTxid = '46b4fe368f89c294d1463bc3ec5a21901d14c215e8b6a82f022ac3c107661f2b';
+  const id = '52';
+  const paymentTxid = '83cad50e0504f80663c6bd8a3cf9dec9fe1f87f2bf066e86ca3f8ab3119c3729';
 
   const utxoAmountInSats = btcToSats(amount);
 
-  // const revealResult = await createReveal({
-  //   inscriptionId: id,
-  //   commitTxId: paymentTxid,
-  //   vout,
-  //   amount: utxoAmountInSats!,
-  //   filePath: path.join(__dirname, INSCRIBE_FILE),
-  // });
-  //
-  // console.log('Full server response: ', revealResult);
+  const revealResult = await createReveal({
+    inscription_id: id,
+    commit_tx_id: paymentTxid,
+    vout: `${vout}`,
+    amount: `${utxoAmountInSats!}`,
+    file_path: path.join(__dirname, INSCRIBE_FILE),
+  });
+
+  console.log('Full server response: ', revealResult);
   /*
    *
     Full server response:  {
@@ -300,15 +300,12 @@ async function main() {
     //
     // 4. Check inscription payment (would trigger status update on remote end if paid)
     // and return UTXO if it is there
-    await checkInscriptionPaymentStep();
+    // await checkInscriptionPaymentStep();
     //
-    // 5. Check inscription payment UTXO
-    // await getInscriptionUtxoStep();
+    // 5. After funding and confirmation, create reveal
+    await getInscriptionRevealDetailsStep();
     //
-    // 6. After funding and confirmation, create reveal
-    // await getInscriptionRevealDetailsStep();
-    //
-    // 7. Broadcast reveal transaction
+    // 6. Broadcast reveal transaction
     // await broadcastRevealTxHexStep();
     //
   } catch (error) {

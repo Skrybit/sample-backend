@@ -77,6 +77,7 @@ function formatInscriptionResponse(inscription: Inscription) {
  *             required:
  *               - recipient_address
  *               - fee_rate
+ *               - sender_address
  *     responses:
  *       200:
  *         description: Commit created successfully

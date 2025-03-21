@@ -47,7 +47,6 @@ function formatPaymentResponse(inscription: any) {
     required_amount_in_sats: inscription.required_amount,
     sender_address: inscription.sender_address,
     status: inscription.status,
-    // payment_utxo: utxo || null,
   };
 }
 

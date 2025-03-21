@@ -46,9 +46,9 @@ export async function createCommit({
 
     const form = new FormData();
     form.append('file', fs.createReadStream(file_path));
-    form.append('recipientAddress', recipient_address);
-    form.append('senderAddress', sender_address);
-    form.append('feeRate', fee_rate);
+    form.append('recipient_address', recipient_address);
+    form.append('sender_address', sender_address);
+    form.append('fee_rate', fee_rate);
 
     console.log('createCommit URL', url);
     const response = await axios.post<CreateCommitResponse>(url, form, {

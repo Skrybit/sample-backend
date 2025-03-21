@@ -71,7 +71,16 @@ export async function checkPaymentToAddress(
   const { result: balance } = balanceResult;
 
   const balanceInSats = btcToSats(balance);
-  const isPaid = !!balanceInSats && balanceInSats >= amountInSats;
+  const walletUtxoResult = await getPaymentUtxo(inscriptionId, address, amountInSats);
+
+  if (!walletUtxoResult.success) {
+    console.log('err checkPaymentToAddress 4a');
+    return { success: false, error: walletUtxoResult.error };
+  }
+
+  const walletUtxo = walletUtxoResult.result;
+
+  const isPaid = (!!balanceInSats && balanceInSats >= amountInSats) || !!walletUtxo;
 
   if (isPaid) {
     if (inscriptionStatus === 'pending') {
@@ -128,25 +137,23 @@ export async function getPaymentUtxo(
   }
 
   const utxoList = utxoListResult.result;
+  console.log('getPaymentUtxo utxoList', utxoList);
 
   const paymentUtxo = utxoList.find((utxo) => {
     const utxoAmountInSats = btcToSats(utxo.amount);
 
     const isAddressOk = utxo.address === address;
     const isAmountOk = !!utxoAmountInSats && utxoAmountInSats >= amountInSats;
-    const isSpendable = utxo.spendable;
+
+    // we dont check if it is spendable? shall we?
+    // const isSpendable = utxo.spendable;
+
     // we have 0 confirmations. maybe we need at least 1???
     const isConfirmed = utxo.confirmations >= 0;
 
-    const result = isAddressOk && isAmountOk && isSpendable && isConfirmed;
+    const result = isAddressOk && isAmountOk && isConfirmed;
     if (!result) {
-      console.log(
-        'err getPaymentUtxo 2: isAddressOk, isAmountOk, isSpendable, isConfirmed',
-        isAddressOk,
-        isAmountOk,
-        isSpendable,
-        isConfirmed,
-      );
+      console.log('err getPaymentUtxo 2: isAddressOk, isAmountOk, isConfirmed', isAddressOk, isAmountOk, isConfirmed);
     }
     return result;
   });

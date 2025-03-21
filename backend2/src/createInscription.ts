@@ -39,12 +39,18 @@ export function createInscription(
   const feeInSats = Math.ceil((totalSize * feeRate) / 4);
   console.log('feeInSats', feeInSats);
 
-  const fee = BigInt(feeInSats);
+  const minWalletfeeInSats = BigInt(1000);
+
+  const feeToCheck = BigInt(feeInSats); // 155 | 600 | 454
+  const feeWithDust = BigInt(feeToCheck + DUST_LIMIT); // 155 + 546 = 701  | 600 + 546 = 1146 | 454 + 546 = 1000
+
+  const fee = feeWithDust >= minWalletfeeInSats ? feeWithDust : minWalletfeeInSats; // 1000 | 1146 | 1000
 
   function createRevealTx(txid: string, index: number, amount: bigint | number): string {
     const tx = new btc.Transaction({ customScripts });
     const inputAmount = BigInt(amount);
-    const outputAmount = inputAmount - fee;
+    // const outputAmount = inputAmount - fee;
+    const outputAmount = inputAmount - feeToCheck; // 1000 - 155 = 845 | 1146 - 600 = 546 | 1000 - 454 = 546
 
     if (outputAmount < DUST_LIMIT) {
       throw new Error(`Output amount (${outputAmount} sats) below dust limit (${DUST_LIMIT} sats)`);
@@ -70,7 +76,7 @@ export function createInscription(
     fileSize: fileContent.length,
     tempPrivateKey: privKeyObj.wif,
     address: revealPayment.address!,
-    requiredAmount: fee.toString(),
+    requiredAmount: fee.toString(), // 1000 | 1146 | 1000
     createRevealTx,
   };
 }

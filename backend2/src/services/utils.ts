@@ -12,9 +12,10 @@ import {
   getBlockAtTimeApproximate,
   createWallet,
   broadcastRevealTransaction,
-  type ErrorDetails,
-  type AddressUtxo,
+  buildRpcWalletName,
 } from './rpcApi';
+
+import { type ErrorDetails, PaymentUtxo } from '../types';
 
 type UpdateInscriptionPaymentFn = (status: string, id: number) => RunResult;
 
@@ -28,20 +29,23 @@ export async function checkPaymentToAddress(
 ): Promise<{ success: true; result: boolean } | { success: false; error: ErrorDetails }> {
   console.log(`Checking ${address} for ${amountInSats}`);
 
-  if (inscriptionStatus === 'paid') {
+  if (inscriptionStatus === 'paid' || inscriptionStatus === 'reveal_ready' || inscriptionStatus === 'completed') {
+    console.log('NOT err checkPaymentToAddress 0 status', inscriptionStatus);
     return { success: true, result: true };
   }
 
-  const walletName = `insc_wallet_${inscriptionId}`;
+  const walletName = buildRpcWalletName(inscriptionId);
 
   if (inscriptionStatus === 'scanning') {
     const errorDetails = getErrorDetails(new Error(`Wallet "${walletName}" is being scanning now. Try again later."`));
+    console.log('err checkPaymentToAddress 1');
     return { success: false, error: errorDetails };
   }
 
   const walletAddressesResult = await listWalletAddresses(walletName);
 
   if (!walletAddressesResult.success) {
+    console.log('err checkPaymentToAddress 2');
     return { success: false, error: walletAddressesResult.error };
   }
 
@@ -53,24 +57,37 @@ export async function checkPaymentToAddress(
     const errorDetails = getErrorDetails(
       new Error(`Could not find payment address "${address}" in the requested wallet "${walletName}"`),
     );
+    console.log('err checkPaymentToAddress 3');
     return { success: false, error: errorDetails };
   }
 
   const balanceResult = await getBalance(walletName);
 
   if (!balanceResult.success) {
+    console.log('err checkPaymentToAddress 4');
     return { success: false, error: balanceResult.error };
   }
+  console.log('balance ', balanceResult.result);
 
   const { result: balance } = balanceResult;
 
   const balanceInSats = btcToSats(balance);
-  const isPaid = !!balanceInSats && balanceInSats >= amountInSats;
+  const walletUtxoResult = await getPaymentUtxo(inscriptionId, address, amountInSats);
+
+  if (!walletUtxoResult.success) {
+    console.log('err checkPaymentToAddress 4a');
+    return { success: false, error: walletUtxoResult.error };
+  }
+
+  const walletUtxo = walletUtxoResult.result;
+
+  const isPaid = (!!balanceInSats && balanceInSats >= amountInSats) || !!walletUtxo;
 
   if (isPaid) {
     if (inscriptionStatus === 'pending') {
       updateInscriptionPayment('paid', inscriptionId);
     }
+    console.log('NOT err checkPaymentToAddress 5');
     return { success: true, result: isPaid };
   }
 
@@ -81,6 +98,7 @@ export async function checkPaymentToAddress(
   const startBlockResult = await getBlockAtTimeApproximate(createdAt);
 
   if (!startBlockResult.success) {
+    console.log('err checkPaymentToAddress 6');
     updateInscriptionPayment(inscriptionStatus, inscriptionId);
     return { success: false, error: startBlockResult.error };
   }
@@ -90,6 +108,7 @@ export async function checkPaymentToAddress(
   const scanResult = await rescanBlockchain(walletName, startBlockResult.result.height);
 
   if (!scanResult.success) {
+    console.log('err checkPaymentToAddress 7');
     updateInscriptionPayment(inscriptionStatus, inscriptionId);
     return { success: false, error: scanResult.error };
   }
@@ -104,32 +123,52 @@ export async function getPaymentUtxo(
   inscriptionId: number,
   address: string,
   amountInSats: number,
-): Promise<{ success: true; result: AddressUtxo } | { success: false; error: ErrorDetails }> {
+): Promise<{ success: true; result: PaymentUtxo } | { success: false; error: ErrorDetails }> {
   console.log(`Checking paymentUtxo for ${address}`);
 
-  const walletName = `insc_wallet_${inscriptionId}`;
+  const walletName = buildRpcWalletName(inscriptionId);
 
+  console.log('walletName', walletName);
+
+  // only unspent utxo
   const utxoListResult = await listAddressUTXO(walletName, [address]);
 
   if (!utxoListResult.success) {
+    console.log('err getPaymentUtxo 1');
     return { success: false, error: utxoListResult.error };
   }
 
   const utxoList = utxoListResult.result;
+  console.log('getPaymentUtxo utxoList', utxoList);
 
   const paymentUtxo = utxoList.find((utxo) => {
     const utxoAmountInSats = btcToSats(utxo.amount);
+
+    const isAddressOk = utxo.address === address;
     const isAmountOk = !!utxoAmountInSats && utxoAmountInSats >= amountInSats;
 
-    return utxo.address === address && isAmountOk && utxo.spendable === true && utxo.confirmations >= 1;
+    // we dont check if it is spendable? shall we?
+    // const isSpendable = utxo.spendable;
+
+    // we have 0 confirmations. maybe we need at least 1???
+    const isConfirmed = utxo.confirmations >= 0;
+
+    const result = isAddressOk && isAmountOk && isConfirmed;
+    if (!result) {
+      console.log('err getPaymentUtxo 2: isAddressOk, isAmountOk, isConfirmed', isAddressOk, isAmountOk, isConfirmed);
+    }
+    return result;
   });
 
   if (!paymentUtxo) {
+    console.log('err getPaymentUtxo 3: ');
     return {
       success: false,
       error: getErrorDetails(new Error('could not find a paymentUtxo with required criterias')),
     };
   }
+
+  console.log('getPaymentUtxo , found utxo successfully  ');
 
   return { success: true, result: paymentUtxo };
 }
@@ -140,6 +179,7 @@ export async function broadcastTx(
   revealTxHex?: string,
 ): Promise<{ success: true; result: string } | { success: false; error: ErrorDetails }> {
   if (revealTxHex !== givenTxHex) {
+    console.log('err broadcastTx 1 ');
     return {
       success: false,
       error: getErrorDetails(
@@ -152,6 +192,7 @@ export async function broadcastTx(
   console.log('broadcastResult u', broadcastResult);
 
   if (!broadcastResult.success) {
+    console.log('err broadcastTx 2 ');
     return { success: false, error: broadcastResult.error };
   }
 
@@ -166,7 +207,7 @@ export async function getAddressDescriptorWithChecksum(
   const getDescriptorChecksumResult = await getDescriptorChecksum(baseDescriptor);
 
   if (!getDescriptorChecksumResult.success) {
-    console.log('err aa 1', getDescriptorChecksumResult.error);
+    console.log('err getAddressDescriptorWithChecksum 1 ', getDescriptorChecksumResult.error);
     return { success: false, error: getDescriptorChecksumResult.error };
   }
 
@@ -180,35 +221,35 @@ export async function createWalletAndAddressDescriptor(
   inscriptionId: number | bigint,
   revealAddress: string,
 ): Promise<{ success: true; result: boolean } | { success: false; error: ErrorDetails }> {
-  const walletName = `insc_wallet_${inscriptionId}`;
+  const walletName = buildRpcWalletName(inscriptionId);
 
   console.log(`Creating walletName "${walletName}" for "${revealAddress}"`);
 
   const createWalletResult = await createWallet(walletName, true);
 
   if (!createWalletResult.success) {
-    console.log('err 1', createWalletResult.error);
+    console.log('err createWalletAndAddressDescriptor 1 ', createWalletResult.error);
     return { success: false, error: createWalletResult.error };
   }
 
   const loadWalletResult = await loadWallet(walletName);
 
   if (!loadWalletResult.success) {
-    console.log('err 2', loadWalletResult.error);
+    console.log('err createWalletAndAddressDescriptor 2', loadWalletResult.error);
     return { success: false, error: loadWalletResult.error };
   }
 
   const descriptorToImportResult = await getAddressDescriptorWithChecksum(revealAddress);
 
   if (!descriptorToImportResult.success) {
-    console.log('err 3', descriptorToImportResult.error);
+    console.log('err createWalletAndAddressDescriptor 3', descriptorToImportResult.error);
     return { success: false, error: descriptorToImportResult.error };
   }
 
   const importResult = await importDescriptor(descriptorToImportResult.result, walletName);
 
   if (!importResult.success) {
-    console.log('err 4', importResult.error);
+    console.log('err createWalletAndAddressDescriptor 4', importResult.error);
     return { success: false, error: importResult.error };
   }
 

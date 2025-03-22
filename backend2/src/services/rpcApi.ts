@@ -1,141 +1,29 @@
 import axios from 'axios';
 import * as dateUtils from '../utils/dateUtils';
-import 'dotenv/config';
+import {
+  type BlockHeader,
+  type RpcRes,
+  type RpcErrRes,
+  type ErrorDetails,
+  type IsWalletLoadedResponse,
+  type LoadWalletResponse,
+  type UnLoadWalletResponse,
+  type CreateWalletResponse,
+  type GetDescriptorChecksumResponse,
+  type ImportDescriptorResponse,
+  type GetBalanceResponse,
+  type RescanBlockchainResponse,
+  type ListWalletAddressesResponse,
+  type ListAddressUTXOResponse,
+  type ScanTxOutSetResponse,
+  type BroadcastRevealTransactionResponse,
+  type GetBlockAtTimeApproximateResponse,
+} from '../types';
+import { RPC_CONFIG, RPC_URL, RPC_TIMEOUT, WALLET_STUB_VAL } from '../config/network';
 
-// Configuration from environment
-const RPC_CONFIG = {
-  host: process.env.RPC_HOST || '127.0.0.1',
-  port: process.env.RPC_PORT || 18332,
-  user: process.env.RPC_USER || 'your_username',
-  pass: process.env.RPC_PASS || 'your_password',
-};
-
-const RPC_URL = `http://${RPC_CONFIG.host}:${RPC_CONFIG.port}/`;
-const RPC_TIMEOUT = 15_000;
-
-type BlockHeader = {
-  time: number;
-  height: number;
-  previousblockhash: string;
-  hash: string;
-};
-
-// check it
-type RpcRes<T> = {
-  success: true;
-  result: T;
-};
-
-type RpcErrRes = {
-  success: false;
-  error: ErrorDetails;
-};
-
-// Axis response -> response.data, map it later when functions use rpcCall
-type RpcResponse<T> = {
-  result: T;
-  id: string;
-  error: null;
-};
-
-// Axios error -> error.response.data
-type RpcErrResponse = {
-  result: null;
-  id: string;
-  error: { code: number; message: string };
-};
-
-export type ErrorDetails = {
-  errCode: string;
-  errMsg: string;
-  errStatus: string;
-  responseStatus?: number;
-  responseStatusText?: string;
-  dataErrCode?: unknown;
-  dataErrMsg: string;
-  details: string;
-  originalResponseError?: RpcErrResponse;
-};
-
-type IsWalletLoadedResponse =
-  | { walletName: string; success: true; result: true }
-  | { walletName: string; success: false; error: ErrorDetails };
-
-type LoadWalletResponse =
-  | { walletName: string; success: false; error: ErrorDetails }
-  | {
-      walletName: string;
-      success: true;
-      result: boolean;
-    };
-
-type UnLoadWalletResponse =
-  | { walletName: string; success: true; result: boolean }
-  | { walletName: string; success: false; error: ErrorDetails };
-
-type CreateWalletResponse =
-  | { walletName: string; success: true; result: boolean }
-  | { walletName: string; success: false; error: ErrorDetails };
-
-type GetDescriptorChecksumResponse = { result: string; success: true } | { success: false; error: ErrorDetails };
-
-type ImportDescriptorResponse = { success: true; result: boolean } | { success: false; error: ErrorDetails };
-
-type GetBalanceResponse = { success: true; result: number } | { success: false; error: ErrorDetails };
-
-type RescanBlockchainResponse =
-  | {
-      success: true;
-      startHeight: number;
-      stoptHeight: number;
-    }
-  | {
-      success: false;
-      startHeight: number;
-      error: ErrorDetails;
-    };
-
-type WalletAddress = {
-  address: string;
-  amount: number;
-  confirmations: number;
-  label: string;
-  txids: string[];
-};
-
-type ListWalletAddressesResponse = { success: true; result: WalletAddress[] } | { success: false; error: ErrorDetails };
-
-export type AddressUtxo = {
-  txid: string;
-  vout: number;
-  address: string;
-  amount: number;
-  confirmations: number;
-  scriptPubKey: string;
-  spendable: boolean;
-};
-
-type ListAddressUTXOResponse = { success: true; result: AddressUtxo[] } | { success: false; error: ErrorDetails };
-
-type ScanTxOutSetResponse = { success: true; result: { progress: number } } | { success: false; error: ErrorDetails };
-
-type GetBlockAtTimeApproximateResponse =
-  | { success: true; result: BlockHeader }
-  | { success: false; error: ErrorDetails };
-
-type BroadcastRevealTransactionResponse = { result: string; success: true } | { success: false; error: ErrorDetails };
-
-// export function isSuccessResponse(
-//   response: WalletAddressResponse
-// ): response is { success: boolean; result: WalletAddress[]; originalResponse: RpcRes<WalletAddressResponse[]> } {
-//   return 'result' in response;
-// }
-//
-// function isErrorResponse(
-//   response: WalletAddressResponse
-// ): response is { success: boolean; error: ErrorDetails } {
-//   return 'error' in response;
-// }
+export function buildRpcWalletName(inscriptionId: number | bigint) {
+  return `insc_wallet_${inscriptionId}_${WALLET_STUB_VAL}`;
+}
 
 export function buildRpcUrlForWallet(walletName: string) {
   if (!walletName) {
@@ -234,7 +122,6 @@ export const getErrorDetails = (error: any): ErrorDetails => {
   };
 };
 
-// done
 export async function isWalletLoaded(walletName: string): Promise<IsWalletLoadedResponse> {
   try {
     const response = await axios.post(
@@ -277,7 +164,6 @@ export async function isWalletLoaded(walletName: string): Promise<IsWalletLoaded
   }
 }
 
-// done
 export async function loadWallet(walletName: string): Promise<LoadWalletResponse> {
   try {
     const response = await axios.post(
@@ -293,13 +179,6 @@ export async function loadWallet(walletName: string): Promise<LoadWalletResponse
         timeout: RPC_TIMEOUT,
       },
     );
-
-    // response
-    // data: {
-    //   result: { name: 'insc_wallet_20' },
-    //   error: null,
-    //   id: 'wallet_load'
-    // }
 
     return {
       walletName,
@@ -329,7 +208,6 @@ export async function loadWallet(walletName: string): Promise<LoadWalletResponse
   }
 }
 
-// done
 export async function unLoadWallet(walletName: string): Promise<UnLoadWalletResponse> {
   try {
     const response = await axios.post(
@@ -346,7 +224,6 @@ export async function unLoadWallet(walletName: string): Promise<UnLoadWalletResp
       },
     );
 
-    // data: { result: {}, error: null, id: 'wallet_unload' }
     return {
       success: true,
       result: !response?.data?.error,
@@ -365,7 +242,6 @@ export async function unLoadWallet(walletName: string): Promise<UnLoadWalletResp
   }
 }
 
-// done
 export async function createWallet(walletName: string, descriptorSupport = false): Promise<CreateWalletResponse> {
   const paramsForImportPrivateKey = [
     false, // disable_private_keys
@@ -420,7 +296,6 @@ export async function createWallet(walletName: string, descriptorSupport = false
   }
 }
 
-// done
 export async function getDescriptorChecksum(descriptor: string): Promise<GetDescriptorChecksumResponse> {
   try {
     const response = await axios.post(
@@ -455,7 +330,6 @@ export async function getDescriptorChecksum(descriptor: string): Promise<GetDesc
   }
 }
 
-// done
 export async function importDescriptor(
   descriptorWithChecksum: string,
   walletName: string,
@@ -504,7 +378,6 @@ export async function importDescriptor(
   }
 }
 
-// done
 export async function getBalance(walletName: string): Promise<GetBalanceResponse> {
   try {
     const url = buildRpcUrlForWallet(walletName);
@@ -541,7 +414,6 @@ export async function getBalance(walletName: string): Promise<GetBalanceResponse
   }
 }
 
-// done - scans blockchain from block
 export async function rescanBlockchain(walletName: string, startBlock: number): Promise<RescanBlockchainResponse> {
   try {
     const url = buildRpcUrlForWallet(walletName);
@@ -577,7 +449,6 @@ export async function rescanBlockchain(walletName: string, startBlock: number): 
   }
 }
 
-// done
 export async function listWalletAddresses(walletName: string): Promise<ListWalletAddressesResponse> {
   try {
     const url = buildRpcUrlForWallet(walletName);
@@ -616,7 +487,6 @@ export async function listWalletAddresses(walletName: string): Promise<ListWalle
   }
 }
 
-// done
 export async function listAddressUTXO(walletName: string, addresses: string[]): Promise<ListAddressUTXOResponse> {
   try {
     const url = buildRpcUrlForWallet(walletName);

@@ -19,7 +19,11 @@ import {
   type BroadcastRevealTransactionResponse,
   type GetBlockAtTimeApproximateResponse,
 } from '../types';
-import { RPC_CONFIG, RPC_URL, RPC_TIMEOUT } from '../config/network';
+import { RPC_CONFIG, RPC_URL, RPC_TIMEOUT, WALLET_STUB_VAL } from '../config/network';
+
+export function buildRpcWalletName(inscriptionId: number | bigint) {
+  return `insc_wallet_${inscriptionId}_${WALLET_STUB_VAL}`;
+}
 
 export function buildRpcUrlForWallet(walletName: string) {
   if (!walletName) {

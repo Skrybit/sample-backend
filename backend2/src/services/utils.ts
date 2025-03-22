@@ -12,6 +12,7 @@ import {
   getBlockAtTimeApproximate,
   createWallet,
   broadcastRevealTransaction,
+  buildRpcWalletName,
 } from './rpcApi';
 
 import { type ErrorDetails, PaymentUtxo } from '../types';
@@ -33,7 +34,7 @@ export async function checkPaymentToAddress(
     return { success: true, result: true };
   }
 
-  const walletName = `insc_wallet_${inscriptionId}`;
+  const walletName = buildRpcWalletName(inscriptionId);
 
   if (inscriptionStatus === 'scanning') {
     const errorDetails = getErrorDetails(new Error(`Wallet "${walletName}" is being scanning now. Try again later."`));
@@ -125,7 +126,8 @@ export async function getPaymentUtxo(
 ): Promise<{ success: true; result: PaymentUtxo } | { success: false; error: ErrorDetails }> {
   console.log(`Checking paymentUtxo for ${address}`);
 
-  const walletName = `insc_wallet_${inscriptionId}`;
+  const walletName = buildRpcWalletName(inscriptionId);
+
   console.log('walletName', walletName);
 
   // only unspent utxo
@@ -219,7 +221,7 @@ export async function createWalletAndAddressDescriptor(
   inscriptionId: number | bigint,
   revealAddress: string,
 ): Promise<{ success: true; result: boolean } | { success: false; error: ErrorDetails }> {
-  const walletName = `insc_wallet_${inscriptionId}`;
+  const walletName = buildRpcWalletName(inscriptionId);
 
   console.log(`Creating walletName "${walletName}" for "${revealAddress}"`);
 

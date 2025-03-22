@@ -358,7 +358,7 @@ router.post(
           given_utxo_amount_in_sats: amount,
           sender_address: inscription.sender_address,
           recipient_address: inscription.recipient_address,
-          fees: `${BigInt(parseInt(amount)) - DUST_LIMIT}`,
+          fees: `${BigInt(parseInt(amount))}`,
         },
       });
     } catch (error) {

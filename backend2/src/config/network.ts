@@ -7,6 +7,9 @@ export const DUST_LIMIT = 546n; // Bitcoin's standard dust limit
 
 export const IS_TESTNET = process.env.NETWORK_NAME === 'Testnet';
 
+// just to make it easier to differentiate wallets on the node and avoid id collision
+export const WALLET_STUB_VAL = process.env.WALLET_STUB_VAL || 'api_server';
+
 console.log('Config IS_TESTNET', IS_TESTNET);
 
 // Defines either Bitcoin Mainnet or Testnet

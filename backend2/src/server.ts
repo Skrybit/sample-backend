@@ -7,6 +7,7 @@ import { initDatabase } from './db/sqlite';
 import paymentsRouter from './routes/payments';
 import inscriptionsRouter from './routes/inscriptions';
 import transactionsRouter from './routes/transactions';
+import { REQUEST_SIZE_LIMIT } from './config/network';
 
 console.log('__filename', __filename);
 console.log(' __dirname: %s', __dirname);
@@ -18,6 +19,8 @@ const app: Application = express();
 initDatabase();
 
 // Middleware
+app.use(express.json({ limit: REQUEST_SIZE_LIMIT }));
+app.use(express.urlencoded({ extended: true, limit: REQUEST_SIZE_LIMIT }));
 app.use(corsMiddleware);
 app.use(express.json());
 app.use(bigintParser);

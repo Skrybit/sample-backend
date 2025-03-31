@@ -37,4 +37,7 @@ export const SENDER_ADDRESS = process.env.SENDER_ADDRESS || '';
 // only used in create commit for now
 export const FEE_RATE = 1.5;
 
+// when we broadcast, the hex might be big, so I have increased it up to 10mb for now
+export const REQUEST_SIZE_LIMIT = '10mb';
+
 console.log('Config RPC_CONFIG', RPC_CONFIG, RPC_URL);

@@ -2,7 +2,6 @@ import { NextFunction, Router, Request, Response } from 'express';
 import fs from 'fs';
 import { upload } from '../middleware/upload';
 import { createInscription } from '../createInscription';
-import { DUST_LIMIT } from '../config/network';
 import { getPublicKeyFromWif, getPrivateKey } from '../utils/walletUtils';
 import { getUTCTimestampInSec, timestampToDateString } from '../utils/dateUtils';
 import { insertInscription, getInscription, getInscriptionBySender, updateInscription } from '../db/sqlite';

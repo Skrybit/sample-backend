@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { updateInscriptionPayment, getInscription } from '../db/sqlite';
-import { checkPaymentToAddress, getPaymentUtxo } from '../services/utils';
+import { updateInscriptionPayment, getInscription, updateInscriptionLastCheckedBlock } from '../db/sqlite';
+import { getCurrentBlockHeight, checkPaymentToAddress } from '../services/utils';
 import { ErrorDetails, ApiErrorResponse, Inscription, PaymentStatusBody, InscriptionPayment } from '../types';
 import { Request, Response } from 'express';
 
@@ -99,13 +99,17 @@ router.post(
 
       const { inscription } = validation;
 
+      const currentBlock = await getCurrentBlockHeight();
+
       const paymentStatus = await checkPaymentToAddress(
         inscription.id,
         inscription.status,
-        inscription.created_at,
         inscription.address,
         inscription.required_amount,
+        inscription.last_checked_block,
+        currentBlock,
         (status: string, id: number) => updateInscriptionPayment.run(status, id),
+        (id: number, lastCheckedBlock: number) => updateInscriptionLastCheckedBlock.run(id, lastCheckedBlock),
       );
 
       if (!paymentStatus.success) {
@@ -119,13 +123,7 @@ router.post(
       const isPaid = paymentStatus.result;
 
       if (isPaid) {
-        const utxoResult = await getPaymentUtxo(inscription.id, inscription.address, inscription.required_amount);
-
-        let paymentUtxo = null;
-
-        if (utxoResult.success) {
-          paymentUtxo = utxoResult.result;
-        }
+        const paymentUtxo = paymentStatus.utxo;
 
         return res.json({
           ...formatPaymentResponse(inscription),

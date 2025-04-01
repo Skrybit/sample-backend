@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getInscription, updateInscription } from '../db/sqlite';
+import { getInscription, updateInscriptionPayment, updateInscriptionRevealTxId } from '../db/sqlite';
 import { broadcastTx } from '../services/utils';
 import { ErrorDetails, ApiErrorResponse, BroadcastRevealResponse, BroadcastRevealTxBody } from '../types';
 import { Inscription } from '../types';
@@ -88,7 +88,8 @@ router.post(
         });
       }
 
-      updateInscription.run(inscription.commit_tx_id!, inscription.reveal_tx_hex!, 'completed', inscriptionId);
+      updateInscriptionPayment.run('completed', inscriptionId);
+      updateInscriptionRevealTxId.run(broadcastResult.result, inscriptionId);
 
       res.json({
         reveal_tx_id: broadcastResult.result,

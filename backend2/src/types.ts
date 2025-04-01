@@ -18,6 +18,9 @@ export interface Inscription {
   commit_tx_id?: string;
   reveal_tx_hex?: string;
   status: 'pending' | 'paid' | 'reveal_ready' | 'completed';
+  reveal_tx_id: string;
+  created_block: number;
+  last_checked_block: number;
 }
 
 // step 1

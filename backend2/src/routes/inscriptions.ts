@@ -3,6 +3,7 @@ import fs from 'fs';
 import { upload } from '../middleware/upload';
 import { createInscription } from '../createInscription';
 import { getPublicKeyFromWif, getPrivateKey } from '../utils/walletUtils';
+import { getCurrentBlockHeight } from '../services/utils';
 import { getUTCTimestampInSec, timestampToDateString } from '../utils/dateUtils';
 import { insertInscription, getInscription, getInscriptionBySender, updateInscription } from '../db/sqlite';
 import {
@@ -126,6 +127,8 @@ router.post(
 
       const createdAtUtc = timestampToDateString(timestamp);
 
+      const createdBlock = await getCurrentBlockHeight();
+
       const result = insertInscription.run(
         inscription.tempPrivateKey,
         inscription.address,
@@ -135,6 +138,8 @@ router.post(
         senderAddress,
         feeRate,
         createdAtUtc,
+        createdBlock,
+        createdBlock,
       );
 
       const lastInsertRowid = result.lastInsertRowid;
@@ -341,6 +346,7 @@ router.post(
 
       const revealTx = revealInscription.createRevealTx(commitTxId, parseInt(vout), parseInt(amount));
 
+      // updates the inscription with the reveal_tx_hex
       updateInscription.run(commitTxId.trim(), revealTx, 'reveal_ready', Number(inscriptionId));
 
       const privKeyObj = getPrivateKey(inscription.temp_private_key);

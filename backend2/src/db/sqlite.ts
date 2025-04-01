@@ -2,7 +2,6 @@ import Database from 'better-sqlite3';
 import path from 'path';
 
 import { IS_TESTNET } from '../config/network';
-import { number } from 'bitcoinjs-lib/src/script';
 
 const dbPrefix = IS_TESTNET ? 'testnet' : 'mainnet';
 

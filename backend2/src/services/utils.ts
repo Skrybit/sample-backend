@@ -3,83 +3,92 @@ import { btcToSats } from '../utils/helpers';
 import {
   getErrorDetails,
   listAddressUTXO,
-  listWalletAddresses,
   loadWallet,
   importDescriptor,
   getDescriptorChecksum,
   getBalance,
   rescanBlockchain,
-  getBlockAtTimeApproximate,
+  // getBlockAtTimeApproximate,
   createWallet,
   broadcastRevealTransaction,
   buildRpcWalletName,
+  getCurrentHeight,
 } from './rpcApi';
 
 import { type ErrorDetails, PaymentUtxo } from '../types';
 
 type UpdateInscriptionPaymentFn = (status: string, id: number) => RunResult;
+type UpdateInscriptionBlockFn = (id: number, lastCheckedBlock: number) => RunResult;
+
+export async function getCurrentBlockHeight() {
+  const currentBlockchainInfo = await getCurrentHeight();
+
+  if (!currentBlockchainInfo.success) {
+    console.log('err getCurrentBlockHeight', currentBlockchainInfo.error);
+    return 0;
+  }
+
+  return currentBlockchainInfo.result;
+}
 
 export async function checkPaymentToAddress(
   inscriptionId: number,
   inscriptionStatus: string,
-  createdAt: string,
   address: string,
   amountInSats: number,
+  lastCheckedBlock: number,
+  currentBlock: number,
   updateInscriptionPayment: UpdateInscriptionPaymentFn,
-): Promise<{ success: true; result: boolean } | { success: false; error: ErrorDetails }> {
+  updateInscriptionBlock: UpdateInscriptionBlockFn,
+): Promise<
+  { success: true; result: boolean; utxo: PaymentUtxo } | { success: false; utxo: null; error: ErrorDetails }
+> {
   console.log(`Checking ${address} for ${amountInSats}`);
-
-  if (inscriptionStatus === 'paid' || inscriptionStatus === 'reveal_ready' || inscriptionStatus === 'completed') {
-    console.log('NOT err checkPaymentToAddress 0 status', inscriptionStatus);
-    return { success: true, result: true };
-  }
 
   const walletName = buildRpcWalletName(inscriptionId);
 
   if (inscriptionStatus === 'scanning') {
     const errorDetails = getErrorDetails(new Error(`Wallet "${walletName}" is being scanning now. Try again later."`));
     console.log('err checkPaymentToAddress 1');
-    return { success: false, error: errorDetails };
-  }
-
-  const walletAddressesResult = await listWalletAddresses(walletName);
-
-  if (!walletAddressesResult.success) {
-    console.log('err checkPaymentToAddress 2');
-    return { success: false, error: walletAddressesResult.error };
-  }
-
-  const { result: addresses } = walletAddressesResult;
-
-  const properAddressItem = addresses.find((addressItem) => addressItem.address === address);
-
-  if (!properAddressItem) {
-    const errorDetails = getErrorDetails(
-      new Error(`Could not find payment address "${address}" in the requested wallet "${walletName}"`),
-    );
-    console.log('err checkPaymentToAddress 3');
-    return { success: false, error: errorDetails };
+    return { success: false, utxo: null, error: errorDetails };
   }
 
   const balanceResult = await getBalance(walletName);
 
   if (!balanceResult.success) {
     console.log('err checkPaymentToAddress 4');
-    return { success: false, error: balanceResult.error };
+    return { success: false, utxo: null, error: balanceResult.error };
   }
   console.log('balance ', balanceResult.result);
+
+  const walletUtxoResultW = await getPaymentUtxo(inscriptionId, address, amountInSats);
+
+  if (!walletUtxoResultW.success) {
+    console.log('err checkPaymentToAddress 0a');
+
+    updateInscriptionPayment('scanning', inscriptionId);
+
+    if (currentBlock && currentBlock >= lastCheckedBlock) {
+      updateInscriptionBlock(currentBlock, inscriptionId);
+    }
+
+    await rescanBlockchain(walletName, lastCheckedBlock);
+
+    updateInscriptionPayment(inscriptionStatus, inscriptionId);
+
+    return { success: false, utxo: null, error: walletUtxoResultW.error };
+  }
+
+  const walletUtxo = walletUtxoResultW.result;
+
+  if (inscriptionStatus === 'paid' || inscriptionStatus === 'reveal_ready' || inscriptionStatus === 'completed') {
+    console.log('NOT err checkPaymentToAddress 0 status', inscriptionStatus);
+    return { success: true, result: true, utxo: walletUtxo };
+  }
 
   const { result: balance } = balanceResult;
 
   const balanceInSats = btcToSats(balance);
-  const walletUtxoResult = await getPaymentUtxo(inscriptionId, address, amountInSats);
-
-  if (!walletUtxoResult.success) {
-    console.log('err checkPaymentToAddress 4a');
-    return { success: false, error: walletUtxoResult.error };
-  }
-
-  const walletUtxo = walletUtxoResult.result;
 
   const isPaid = (!!balanceInSats && balanceInSats >= amountInSats) || !!walletUtxo;
 
@@ -88,35 +97,16 @@ export async function checkPaymentToAddress(
       updateInscriptionPayment('paid', inscriptionId);
     }
     console.log('NOT err checkPaymentToAddress 5');
-    return { success: true, result: isPaid };
-  }
-
-  /// block begin B - we now finding the block on the fly , but we can modify create inscription to save the current block
-  // and avoid scanning
-  updateInscriptionPayment('scanning', inscriptionId);
-
-  const startBlockResult = await getBlockAtTimeApproximate(createdAt);
-
-  if (!startBlockResult.success) {
-    console.log('err checkPaymentToAddress 6');
-    updateInscriptionPayment(inscriptionStatus, inscriptionId);
-    return { success: false, error: startBlockResult.error };
-  }
-  /// block end B
-
-  /// block begin S - we can move the rescanBlockchain logic to a different function later, to use with cron
-  const scanResult = await rescanBlockchain(walletName, startBlockResult.result.height);
-
-  if (!scanResult.success) {
-    console.log('err checkPaymentToAddress 7');
-    updateInscriptionPayment(inscriptionStatus, inscriptionId);
-    return { success: false, error: scanResult.error };
+    return { success: true, result: true, utxo: walletUtxo };
   }
 
   updateInscriptionPayment(inscriptionStatus, inscriptionId);
-  /// block end S
 
-  return { success: true, result: false };
+  return {
+    success: false,
+    utxo: null,
+    error: getErrorDetails(new Error('could not check if inscription was paid')),
+  };
 }
 
 export async function getPaymentUtxo(

@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import path from 'path';
 
 import { IS_TESTNET } from '../config/network';
+import { number } from 'bitcoinjs-lib/src/script';
 
 const dbPrefix = IS_TESTNET ? 'testnet' : 'mainnet';
 
@@ -24,7 +25,10 @@ export function initDatabase() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       commit_tx_id TEXT,
       reveal_tx_hex TEXT,
-      status TEXT DEFAULT 'pending'
+      status TEXT DEFAULT 'pending',
+      reveal_tx_id TEXT DEFAULT '',
+      created_block INTEGER DEFAULT 0,
+      last_checked_block INTEGER DEFAULT 0
     )
   `);
   console.log('Database initialized successfully');
@@ -34,19 +38,35 @@ export function initDatabase() {
 export const insertInscription = db.prepare(`
   INSERT INTO inscriptions (
     temp_private_key, address, required_amount,
-    file_size, recipient_address, sender_address, fee_rate, created_at
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    file_size, recipient_address, sender_address, fee_rate, created_at, created_block, last_checked_block
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `);
 
 export const getInscription = db.prepare<number>('SELECT * FROM inscriptions WHERE id = ?');
+
 export const getInscriptionBySender = db.prepare<string>('SELECT * FROM inscriptions WHERE sender_address = ?');
+
+// updates the inscription when reveal tx hex is ready
 export const updateInscription = db.prepare<[string, string, string, number]>(`
   UPDATE inscriptions 
   SET commit_tx_id = ?, reveal_tx_hex = ?, status = ? 
   WHERE id = ?
 `);
+
 export const updateInscriptionPayment = db.prepare<[string, number]>(`
   UPDATE inscriptions 
   SET status = ? 
+  WHERE id = ?
+`);
+
+export const updateInscriptionLastCheckedBlock = db.prepare<[number, number]>(`
+  UPDATE inscriptions 
+  SET last_checked_block = ?
+  WHERE id = ?
+`);
+
+export const updateInscriptionRevealTxId = db.prepare<[string, number]>(`
+  UPDATE inscriptions 
+  SET reveal_tx_id = ?
   WHERE id = ?
 `);

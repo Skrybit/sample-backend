@@ -414,6 +414,7 @@ export async function getBalance(walletName: string): Promise<GetBalanceResponse
   }
 }
 
+// is ONLY used when node is being synced and no utxo was found
 export async function rescanBlockchain(walletName: string, startBlock: number): Promise<RescanBlockchainResponse> {
   try {
     const url = buildRpcUrlForWallet(walletName);
@@ -665,6 +666,7 @@ export async function scanTxOutSetStatus(addresses: string[]): Promise<ScanTxOut
   }
 }
 
+// is not used as for now.
 export async function getBlockAtTimeApproximate(
   createdAt: string,
   verifyIntegrity = false,

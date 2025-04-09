@@ -1,0 +1,23 @@
+version: "3.9"
+services:
+  backend:
+    build:
+      context: .
+      target: ${TARGET:-development}
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - RPC_HOST=${RPC_HOST}
+      - RPC_PORT=${RPC_PORT}
+      - RPC_USER=${RPC_USER}
+      - RPC_PASS=${RPC_PASS}
+      - BASE_URL=${BASE_URL}
+      - NETWORK_NAME=${NETWORK_NAME}
+      - RECIPIENT_ADDRESS=${RECIPIENT_ADDRESS}
+      - SENDER_ADDRESS=${SENDER_ADDRESS}
+    volumes:
+      - ./ordinals.db:/app/ordinals.db
+      - ./ordinals_mainnet.db:/app/ordinals_mainnet.db
+      - ./ordinals_testnet.db:/app/ordinals_testnet.db
+    restart: unless-stopped

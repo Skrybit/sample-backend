@@ -3,6 +3,10 @@ FROM node:18-alpine AS base
 WORKDIR /app
 RUN apk add --no-cache libc6-compat
 
+# Define build argument for APP_VERSION
+ARG APP_VERSION=unknown
+ENV APP_VERSION=${APP_VERSION}
+
 # Development stage
 FROM base AS development
 WORKDIR /app

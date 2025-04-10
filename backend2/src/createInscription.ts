@@ -39,10 +39,12 @@ export function createInscription(
   const feeInSats = Math.ceil((totalSize * feeRate) / 4);
   console.log('feeInSats', feeInSats);
 
-  const minWalletfeeInSats = BigInt(1000);
+  const minWalletfeeInSats = DUST_LIMIT + DUST_LIMIT + 1n;
 
-  const feeToCheck = BigInt(feeInSats); // 155 | 600 | 454
-  const feeWithDust = BigInt(feeToCheck + DUST_LIMIT); // 155 + 546 = 701  | 600 + 546 = 1146 | 454 + 546 = 1000
+  const feeToCheck = BigInt(feeInSats < DUST_LIMIT ? DUST_LIMIT : feeInSats); // 155 | 600 | 454 | 123
+  console.log('feeToCheck', feeToCheck);
+
+  const feeWithDust = BigInt(feeToCheck + DUST_LIMIT); // 155 + 546 = 701  | 600 + 546 = 1146 | 454 + 546 = 1000 | 123 + 546 = 669
 
   const fee = feeWithDust >= minWalletfeeInSats ? feeWithDust : minWalletfeeInSats; // 1000 | 1146 | 1000
 

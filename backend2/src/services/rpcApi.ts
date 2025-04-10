@@ -414,6 +414,7 @@ export async function getBalance(walletName: string): Promise<GetBalanceResponse
   }
 }
 
+// is ONLY used when node is being synced and no utxo was found
 export async function rescanBlockchain(walletName: string, startBlock: number): Promise<RescanBlockchainResponse> {
   try {
     const url = buildRpcUrlForWallet(walletName);
@@ -517,6 +518,29 @@ export async function listAddressUTXO(walletName: string, addresses: string[]): 
       handleNonRpcError(error);
     }
 
+    return {
+      success: false,
+      error: getErrorDetails(error),
+    };
+  }
+}
+
+export async function getCurrentHeight(): Promise<
+  { success: true; result: number } | { success: false; error: ErrorDetails }
+> {
+  try {
+    const currentBlockchainInfo = await rpcCall<{ blocks: number }>('getblockchaininfo', []);
+
+    if (!currentBlockchainInfo.success) {
+      return { success: false, error: getErrorDetails(currentBlockchainInfo.error) };
+    }
+    const { blocks: currentHeight } = currentBlockchainInfo.result;
+
+    return {
+      success: true,
+      result: currentHeight,
+    };
+  } catch (error) {
     return {
       success: false,
       error: getErrorDetails(error),
@@ -642,7 +666,7 @@ export async function scanTxOutSetStatus(addresses: string[]): Promise<ScanTxOut
   }
 }
 
-// done
+// is not used as for now.
 export async function getBlockAtTimeApproximate(
   createdAt: string,
   verifyIntegrity = false,
@@ -652,18 +676,13 @@ export async function getBlockAtTimeApproximate(
   console.log('ℹ️ Iscription create time (given target)  ', createdAt);
   console.log('ℹ️ TargetTime UTC', targetTime);
 
-  // Get current blockchain info
-  const currentBlockchainInfo = await rpcCall<{ blocks: number }>(
-    'getblockchaininfo',
-    [],
-    `❌ Could not get current blockchain info `,
-  );
+  const currentBlockchainInfo = await getCurrentHeight();
 
   if (!currentBlockchainInfo.success) {
     return { success: false, error: currentBlockchainInfo.error };
   }
 
-  const { blocks: currentHeight } = currentBlockchainInfo.result;
+  const currentHeight = currentBlockchainInfo.result;
 
   // Binary search implementation
   let low = 0;

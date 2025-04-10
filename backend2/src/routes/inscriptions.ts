@@ -2,10 +2,9 @@ import { NextFunction, Router, Request, Response } from 'express';
 import fs from 'fs';
 import { upload } from '../middleware/upload';
 import { createInscription } from '../createInscription';
-import { DUST_LIMIT } from '../config/network';
 import { getPublicKeyFromWif, getPrivateKey } from '../utils/walletUtils';
-import { getUTCTimestampInSec, timestampToDateString } from '../utils/dateUtils';
-import { insertInscription, getInscription, getInscriptionBySender, updateInscription } from '../db/sqlite';
+import { getCurrentBlockHeight } from '../services/utils';
+import { appdb } from '../db';
 import {
   Inscription,
   CreateRevealPayload,
@@ -20,6 +19,14 @@ import {
 import { createWalletAndAddressDescriptor } from '../services/utils';
 
 const router = Router();
+
+const {
+  deletePendingInscriptionBySender,
+  insertInscription,
+  getInscription,
+  getInscriptionBySender,
+  updateInscription,
+} = appdb;
 
 function getBaseResponse(inscription: any, id: number | bigint, recipient: string, sender: string) {
   return {
@@ -120,25 +127,25 @@ router.post(
         return res.status(400).json({ error: 'Missing required parameters' });
       }
 
+      await deletePendingInscriptionBySender(senderAddress);
+
       const fileBuffer = fs.readFileSync(req.file.path);
       const inscription = createInscription(fileBuffer, parseFloat(feeRate), recipientAddress);
 
-      const timestamp = getUTCTimestampInSec();
+      const createdBlock = await getCurrentBlockHeight();
 
-      const createdAtUtc = timestampToDateString(timestamp);
-
-      const result = insertInscription.run(
-        inscription.tempPrivateKey,
-        inscription.address,
-        inscription.requiredAmount,
-        inscription.fileSize,
+      const result = await insertInscription({
+        tempPrivateKey: inscription.tempPrivateKey,
+        address: inscription.address,
+        requiredAmount: inscription.requiredAmount,
+        fileSize: inscription.fileSize,
         recipientAddress,
         senderAddress,
         feeRate,
-        createdAtUtc,
-      );
+        createdBlock,
+      });
 
-      const lastInsertRowid = result.lastInsertRowid;
+      const lastInsertRowid = result.id;
 
       const broadcastResult = await createWalletAndAddressDescriptor(lastInsertRowid, inscription.address);
 
@@ -204,10 +211,10 @@ router.get(
   ) => {
     try {
       const senderAddress = req.params.sender_address;
-      const inscriptions = getInscriptionBySender.all(senderAddress) as Inscription[];
+      const inscriptions = await getInscriptionBySender(senderAddress);
 
       if (inscriptions.length === 0) {
-        return res.status(400).json({ error: 'No inscriptions found for this sender' });
+        return res.json([]);
       }
 
       res.json(inscriptions.map(formatInscriptionResponse));
@@ -254,7 +261,7 @@ router.get(
         return res.status(400).json({ error: 'Invalid inscription ID' });
       }
 
-      const inscription = await getInscription.get(inscriptionId);
+      const inscription = await getInscription(inscriptionId);
 
       if (!inscription) {
         return res.status(400).json({ error: 'Inscription not found' });
@@ -319,13 +326,19 @@ router.post(
   upload.single('file'),
   async (req: Request, res: Response<CreateRevealResponse | ApiErrorResponse>) => {
     try {
-      const { inscription_id: inscriptionId, commit_tx_id: commitTxId, vout, amount } = req.body as CreateRevealPayload;
+      const { inscription_id: insId, commit_tx_id: commitTxId, vout, amount } = req.body as CreateRevealPayload;
 
-      if (!req.file || !inscriptionId || !commitTxId || vout === undefined || !amount) {
+      if (!req.file || !insId || !commitTxId || vout === undefined || !amount) {
         return res.status(400).json({ error: 'Missing required parameters' });
       }
 
-      const inscription = getInscription.get(parseInt(inscriptionId)) as Inscription;
+      const inscriptionId = parseInt(insId);
+
+      if (isNaN(inscriptionId)) {
+        return res.status(400).json({ error: 'Invalid inscription ID' });
+      }
+
+      const inscription = await getInscription(inscriptionId);
 
       if (!inscription) {
         return res.status(400).json({ error: 'Inscription not found' });
@@ -342,7 +355,12 @@ router.post(
 
       const revealTx = revealInscription.createRevealTx(commitTxId, parseInt(vout), parseInt(amount));
 
-      updateInscription.run(commitTxId.trim(), revealTx, 'reveal_ready', Number(inscriptionId));
+      await updateInscription({
+        id: Number(inscriptionId),
+        commitTxId: commitTxId.trim(),
+        revealTxHex: revealTx,
+        status: 'reveal_ready',
+      });
 
       const privKeyObj = getPrivateKey(inscription.temp_private_key);
       const pubkey = getPublicKeyFromWif(privKeyObj.wif);
@@ -350,7 +368,6 @@ router.post(
       res.json({
         inscription_id: inscription.id + '',
         commit_tx_id: commitTxId.trim(),
-        reveal_tx_hex: revealTx,
         debug: {
           payment_address: revealInscription.address,
           payment_pubkey: pubkey.hex,

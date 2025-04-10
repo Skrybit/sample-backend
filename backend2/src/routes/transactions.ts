@@ -1,8 +1,9 @@
 import { Router, Request, Response } from 'express';
-import { getInscription, updateInscription } from '../db/sqlite';
 import { broadcastTx } from '../services/utils';
+import { appdb } from '../db';
 import { ErrorDetails, ApiErrorResponse, BroadcastRevealResponse, BroadcastRevealTxBody } from '../types';
-import { Inscription } from '../types';
+
+const { getInscription, updateInscriptionStatus, updateInscriptionRevealTxId } = appdb;
 
 const router = Router();
 
@@ -56,9 +57,9 @@ router.post(
     >,
   ) => {
     try {
-      const { reveal_tx_hex: txHex, inscription_id: id } = req.body as BroadcastRevealTxBody;
+      const { inscription_id: id } = req.body as BroadcastRevealTxBody;
 
-      if (!txHex || !id) {
+      if (!id) {
         return res.status(400).json({ error: 'Missing required fields' });
       }
 
@@ -68,17 +69,17 @@ router.post(
         return res.status(400).json({ error: 'Invalid inscription ID format' });
       }
 
-      const inscription = getInscription.get(inscriptionId) as Inscription | undefined;
+      const inscription = await getInscription(inscriptionId);
 
       if (!inscription) {
         return res.status(400).json({ error: 'Inscription not found' });
       }
 
-      if (!inscription.reveal_tx_hex || inscription.reveal_tx_hex !== txHex) {
-        return res.status(400).json({ error: 'Wrong reveal_tx_hex or inscription has no reveal_tx_hex' });
+      if (!inscription.reveal_tx_hex) {
+        return res.status(400).json({ error: 'Inscription has no reveal_tx_hex' });
       }
 
-      const broadcastResult = await broadcastTx(inscriptionId, txHex, inscription.reveal_tx_hex);
+      const broadcastResult = await broadcastTx(inscriptionId, inscription.reveal_tx_hex);
 
       if (!broadcastResult.success) {
         return res.status(400).json({
@@ -88,7 +89,15 @@ router.post(
         });
       }
 
-      updateInscription.run(inscription.commit_tx_id!, inscription.reveal_tx_hex!, 'completed', inscriptionId);
+      await updateInscriptionStatus({
+        id: inscriptionId,
+        status: 'completed',
+      });
+
+      await updateInscriptionRevealTxId({
+        id: inscriptionId,
+        revealTxId: broadcastResult.result,
+      });
 
       res.json({
         reveal_tx_id: broadcastResult.result,

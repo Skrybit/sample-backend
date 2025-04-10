@@ -1,10 +1,12 @@
 import { Router } from 'express';
-import { updateInscriptionPayment, getInscription } from '../db/sqlite';
-import { checkPaymentToAddress, getPaymentUtxo } from '../services/utils';
-import { ErrorDetails, ApiErrorResponse, Inscription, PaymentStatusBody, InscriptionPayment } from '../types';
+import { appdb } from '../db';
+import { getCurrentBlockHeight, checkPaymentToAddress } from '../services/utils';
+import { ErrorDetails, ApiErrorResponse, PaymentStatusBody, InscriptionPayment } from '../types';
 import { Request, Response } from 'express';
 
 const router = Router();
+
+const { getInscription } = appdb;
 
 async function validatePaymentRequest(address: string, amount: string, sender: string, id: string) {
   const errors = [];
@@ -23,7 +25,7 @@ async function validatePaymentRequest(address: string, amount: string, sender: s
     return { error: { error: 'Invalid inscription ID format' } };
   }
 
-  const inscription = (await getInscription.get(inscriptionId)) as Inscription | undefined;
+  const inscription = await getInscription(inscriptionId);
 
   if (!inscription) {
     return { error: { error: 'Inscription not found' } };
@@ -99,13 +101,15 @@ router.post(
 
       const { inscription } = validation;
 
+      const currentBlock = await getCurrentBlockHeight();
+
       const paymentStatus = await checkPaymentToAddress(
         inscription.id,
         inscription.status,
-        inscription.created_at,
         inscription.address,
         inscription.required_amount,
-        (status: string, id: number) => updateInscriptionPayment.run(status, id),
+        inscription.last_checked_block,
+        currentBlock,
       );
 
       if (!paymentStatus.success) {
@@ -119,13 +123,7 @@ router.post(
       const isPaid = paymentStatus.result;
 
       if (isPaid) {
-        const utxoResult = await getPaymentUtxo(inscription.id, inscription.address, inscription.required_amount);
-
-        let paymentUtxo = null;
-
-        if (utxoResult.success) {
-          paymentUtxo = utxoResult.result;
-        }
+        const paymentUtxo = paymentStatus.utxo;
 
         return res.json({
           ...formatPaymentResponse(inscription),

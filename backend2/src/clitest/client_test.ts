@@ -10,23 +10,19 @@ import path from 'path';
 import { RECIPIENT_ADDRESS, SENDER_ADDRESS, FEE_RATE } from '../config/network';
 import { btcToSats } from '../utils/helpers';
 
-const INSCRIBE_FILE = 'test.txt'; // must be in the same directory
+const INSCRIBE_FILE = 'test_sm.txt'; // must be in the same directory
 
 // inscription data
-const inscriptionId = 62;
-const inscriptionRequiredAmount = '1026';
-const inscriptionPaymentAddress = 'tb1pvjgsq7zs5zrjcgn3x9d796lgf39r4su2mhkrynsp2f4mtpj75n3swwdprn';
+const inscriptionId = 5;
+const inscriptionRequiredAmount = '1093';
+const inscriptionPaymentAddress = 'tb1pjfky9q40k74q0a22fvpt7ygvurskwzgzp5kdc0y8fv4ruzclxsnswr06yj';
 
 // utxo data
 const inscriptionUtxoVout = 0;
 // const amount = 0.0000015; // 150
 // const amount = 0.00001; // 1_000
-const inscriptionUtxoAmount = 0.00001027;
-const inscriptionUtxoTxId = '2ab0514f262425739406c984a1017b7ad231be2cbb1803551e45272457da44c0';
-
-// reveal data
-const inscriptionRevealTxHex =
-  '02000000000101c044da572427451e550318bb2cbe31d27a7b01a184c90694732524264f51b02a0000000000ffffffff01230200000000000016001476649a1a1cf948f43a50da902411e8a2a638612c03409ea3a164f9ea8148fffdd055d9ff47308bc4de5e9600bb98efa17244ef7e6041901794d00b3bcad671f3fe31bb7a5292d6b49f19b0576492238de815bbc32ea5fd1f0420ca1563e01fce32d8400465b65134edb063909bfa58d6e039d7d953c4c8a5ec3cac0063036f7264010118746578742f706c61696e3b636861727365743d7574662d38004d0802686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c2079654dcc01732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a686579206974206973206d652c207965732c206974206973206d650a6821c050929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac000000000';
+const inscriptionUtxoAmount = 0.00001093;
+const inscriptionUtxoTxId = '';
 
 const getSenderInscriptionsStep = async () => {
   // (optional) Get a list of current sender inscriptions
@@ -67,7 +63,7 @@ const createCommitStep = async () => {
 const checkInscriptionPaymentStep = async () => {
   // 2. Check inscription payment
   // (would trigger status update on remote end if paid)
-  // and return UTXO if it is there
+  // and return UTXO if it is there and reveal and broadcast
   const address = inscriptionPaymentAddress;
   const id = inscriptionId + '';
   const requiredAmount = inscriptionRequiredAmount;
@@ -76,6 +72,27 @@ const checkInscriptionPaymentStep = async () => {
 
   const isInscriptiionPaidResponse = await isInscriptionPaid(address, id, senderAddress, requiredAmount);
   console.log('isInscriptiionPaidResponse', isInscriptiionPaidResponse);
+  if (isInscriptiionPaidResponse.success && isInscriptiionPaidResponse.result.payment_utxo) {
+    const vout = isInscriptiionPaidResponse.result.payment_utxo.vout;
+    const amount = isInscriptiionPaidResponse.result.payment_utxo.amount;
+    const paymentTxid = isInscriptiionPaidResponse.result.payment_utxo.txid;
+
+    const utxoAmountInSats = btcToSats(amount);
+
+    const revealResult = await createReveal({
+      inscription_id: id,
+      commit_tx_id: paymentTxid,
+      vout: `${vout}`,
+      amount: `${utxoAmountInSats!}`,
+      file_path: path.join(__dirname, INSCRIBE_FILE),
+    });
+    console.log('Full server response of the reveal after payment check: ', revealResult);
+
+    if (revealResult.success) {
+      const revealTxResult = await broadcastRevealTx(id);
+      console.log('\nReveal Transaction Broadcasted result (from check payment):', revealTxResult);
+    }
+  }
 };
 
 const getInscriptionRevealDetailsStep = async () => {
@@ -97,15 +114,18 @@ const getInscriptionRevealDetailsStep = async () => {
   });
 
   console.log('Full server response: ', revealResult);
+
+  if (revealResult.success) {
+    const revealTxResult = await broadcastRevealTx(id);
+    console.log('\nReveal Transaction Broadcasted result:', revealTxResult);
+  }
 };
 
 const broadcastRevealTxHexStep = async () => {
   // 4. Broadcast reveal transaction
   const id = inscriptionId + '';
 
-  const revealTxHex = inscriptionRevealTxHex;
-
-  const revealTxResult = await broadcastRevealTx(id, revealTxHex);
+  const revealTxResult = await broadcastRevealTx(id);
   console.log('\nReveal Transaction Broadcasted result:', revealTxResult);
   if (!revealTxResult.success) {
     console.log('\nReveal Transaction Broadcasted result:', revealTxResult.error);
@@ -115,7 +135,7 @@ const broadcastRevealTxHexStep = async () => {
 async function main() {
   try {
     // (optional) Get a list of current sender inscriptions
-    // await getSenderInscriptionsStep();
+    await getSenderInscriptionsStep();
     //
     // (optional) Check inscription status and details
     // await checkInscriptionStep();
@@ -125,13 +145,16 @@ async function main() {
     //
     // 2. Check inscription payment
     // (would trigger status update on remote end if paid)
+    // (also will auto reveal and broadcast)
     // and return UTXO if it is there
-    await checkInscriptionPaymentStep();
+    // await checkInscriptionPaymentStep();
     //
-    // 3. After funding and confirmation, create reveal
+    // (is done in the previous step)
+    // 3. After funding and confirmation, create reveal and broadcast the revealTx
     // await getInscriptionRevealDetailsStep();
     //
-    // 4. Broadcast reveal transaction
+    // (is done in the previous step)
+    // 4. Broadcast reveal transaction (not needed)
     // await broadcastRevealTxHexStep();
     //
   } catch (error) {

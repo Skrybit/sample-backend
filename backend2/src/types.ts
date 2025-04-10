@@ -18,6 +18,9 @@ export interface Inscription {
   commit_tx_id?: string;
   reveal_tx_hex?: string;
   status: 'pending' | 'paid' | 'reveal_ready' | 'completed';
+  reveal_tx_id: string;
+  created_block: number;
+  last_checked_block: number;
 }
 
 // step 1
@@ -97,7 +100,6 @@ export interface CreateRevealPayload {
 export interface CreateRevealResponse {
   inscription_id: string;
   commit_tx_id: string;
-  reveal_tx_hex: string;
   debug: {
     payment_address: string;
     payment_pubkey: string;
@@ -112,7 +114,6 @@ export interface CreateRevealResponse {
 // step 6
 export interface BroadcastRevealTxBody {
   inscription_id: string;
-  reveal_tx_hex: string;
 }
 
 // step 6

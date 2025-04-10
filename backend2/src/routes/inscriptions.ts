@@ -20,7 +20,13 @@ import { createWalletAndAddressDescriptor } from '../services/utils';
 
 const router = Router();
 
-const { insertInscription, getInscription, getInscriptionBySender, updateInscription } = appdb;
+const {
+  deletePendingInscriptionBySender,
+  insertInscription,
+  getInscription,
+  getInscriptionBySender,
+  updateInscription,
+} = appdb;
 
 function getBaseResponse(inscription: any, id: number | bigint, recipient: string, sender: string) {
   return {
@@ -120,6 +126,8 @@ router.post(
       if (!req.file || !recipientAddress || !feeRate) {
         return res.status(400).json({ error: 'Missing required parameters' });
       }
+
+      await deletePendingInscriptionBySender(senderAddress);
 
       const fileBuffer = fs.readFileSync(req.file.path);
       const inscription = createInscription(fileBuffer, parseFloat(feeRate), recipientAddress);

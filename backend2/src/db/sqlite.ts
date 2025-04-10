@@ -160,3 +160,8 @@ export async function updateInscriptionRevealTxId({ id, revealTxId }: { id: numb
 
   return result.lastInsertRowid;
 }
+
+// not implemented
+export async function deletePendingInscriptionBySender(senderAddress: string, status = 'pending'): Promise<number> {
+  return 0;
+}

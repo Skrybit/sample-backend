@@ -59,6 +59,15 @@ export async function getInscriptionBySender(senderAddress: string): Promise<Ins
   return result.rows as Inscription[];
 }
 
+export async function deletePendingInscriptionBySender(senderAddress: string, status = 'pending'): Promise<number> {
+  const result = await query('DELETE FROM inscriptions WHERE sender_address = $1 and status = $2', [
+    senderAddress,
+    status,
+  ]);
+  console.log('delete result', result);
+  return result.rowCount || 0;
+}
+
 export async function updateInscription({
   id,
   commitTxId,
@@ -247,62 +256,9 @@ export async function insertInscription({
   }
 }
 
-export const db = {
-  // async getInscription(id: number): Promise<Inscription | null> {
-  //   const result = await query('SELECT * FROM inscriptions WHERE id = $1', [id]);
-  //   return result.rows[0] || null;
-  // },
-  //
-  // async getInscriptionBySender(senderAddress: string): Promise<Inscription[]> {
-  //   const result = await query('SELECT * FROM inscriptions WHERE sender_address = $1', [senderAddress]);
-  //   return result.rows;
-  // },
-  // async updateInscription(
-  //   id: number,
-  //   updates: {
-  //     commit_tx_id?: string;
-  //     reveal_tx_hex?: string;
-  //     status?: string;
-  //   },
-  // ): Promise<Inscription> {
-  //   const fields = [];
-  //   const values = [];
-  //   let paramIndex = 1;
-  //
-  //   if (updates.commit_tx_id) {
-  //     fields.push(`commit_tx_id = $${paramIndex++}`);
-  //     values.push(updates.commit_tx_id);
-  //   }
-  //   if (updates.reveal_tx_hex) {
-  //     fields.push(`reveal_tx_hex = $${paramIndex++}`);
-  //     values.push(updates.reveal_tx_hex);
-  //   }
-  //   if (updates.status) {
-  //     fields.push(`status = $${paramIndex++}`);
-  //     values.push(updates.status);
-  //   }
-  //
-  //   values.push(id);
-  //   const queryText = `
-  //     UPDATE inscriptions
-  //     SET ${fields.join(', ')}
-  //     WHERE id = $${paramIndex}
-  //     RETURNING *
-  //   `;
-  //
-  //   const result = await query(queryText, values);
-  //   return result.rows[0];
-  // },
-  // async updateInscriptionPayment(id: number, status: string): Promise<Inscription> {
-  //   return this.updateInscription(id, { status });
-  // },
-};
-
 process.on('SIGINT', async () => {
   await pool.end();
   console.log('PostgreSQL pool closed');
   // do we need it?
   process.exit(0);
 });
-
-export default db;

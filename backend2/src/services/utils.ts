@@ -1,5 +1,5 @@
-// import { RunResult } from 'better-sqlite3';
 import { btcToSats } from '../utils/helpers';
+import { updateInscriptionStatus, updateInscriptionLastCheckedBlock } from '../db/sqlite';
 import {
   getErrorDetails,
   listAddressUTXO,
@@ -15,12 +15,6 @@ import {
 } from './rpcApi';
 
 import { type ErrorDetails, PaymentUtxo } from '../types';
-
-// type UpdateInscriptionPaymentFn = (status: string, id: number) => RunResult;
-// type UpdateInscriptionBlockFn = (id: number, lastCheckedBlock: number) => RunResult;
-
-type UpdateInscriptionPaymentFn = (id: number, status: string) => Promise<number>;
-type UpdateInscriptionBlockFn = (id: number, lastCheckedBlock: number) => Promise<number>;
 
 export async function getCurrentBlockHeight() {
   const currentBlockchainInfo = await getCurrentHeight();
@@ -40,8 +34,6 @@ export async function checkPaymentToAddress(
   amountInSats: number,
   lastCheckedBlock: number,
   currentBlock: number,
-  updateInscriptionPayment: UpdateInscriptionPaymentFn,
-  updateInscriptionBlock: UpdateInscriptionBlockFn,
 ): Promise<
   | { success: true; result: boolean; utxo: PaymentUtxo }
   | { success: true; result: true; utxo: null }
@@ -75,16 +67,19 @@ export async function checkPaymentToAddress(
   if (!walletUtxoResultW.success) {
     console.log('err checkPaymentToAddress 0a');
 
-    await updateInscriptionPayment(inscriptionId, 'scanning');
+    await updateInscriptionStatus({
+      id: inscriptionId,
+      status: 'scanning',
+    });
 
     if (currentBlock && currentBlock >= lastCheckedBlock) {
       // await updateInscriptionBlock(currentBlock, inscriptionId);
-      await updateInscriptionBlock(inscriptionId, currentBlock);
+      await updateInscriptionLastCheckedBlock({ id: inscriptionId, lastCheckedBlock: currentBlock });
     }
 
     await rescanBlockchain(walletName, lastCheckedBlock);
 
-    await updateInscriptionPayment(inscriptionId, inscriptionStatus);
+    await updateInscriptionStatus({ id: inscriptionId, status: inscriptionStatus });
 
     return { success: false, utxo: null, error: walletUtxoResultW.error };
   }
@@ -104,13 +99,13 @@ export async function checkPaymentToAddress(
 
   if (isPaid) {
     if (inscriptionStatus === 'pending') {
-      await updateInscriptionPayment(inscriptionId, 'paid');
+      await updateInscriptionStatus({ id: inscriptionId, status: 'paid' });
     }
     console.log('NOT err checkPaymentToAddress 5');
     return { success: true, result: true, utxo: walletUtxo };
   }
 
-  await updateInscriptionPayment(inscriptionId, inscriptionStatus);
+  await updateInscriptionStatus({ id: inscriptionId, status: inscriptionStatus });
 
   return {
     success: false,

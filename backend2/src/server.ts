@@ -3,8 +3,7 @@ import swaggerUi from 'swagger-ui-express';
 import corsMiddleware from './middleware/cors';
 import { bigintParser } from './middleware/bigintParser';
 import { swaggerSpec } from './config/swagger';
-// import { initDatabase } from './db/sqlite';
-import { initDatabase } from './db/pg';
+import { appdb } from './db';
 import paymentsRouter from './routes/payments';
 import inscriptionsRouter from './routes/inscriptions';
 import transactionsRouter from './routes/transactions';
@@ -16,8 +15,7 @@ console.log(' __dirname: %s', __dirname);
 const PORT = Number(process.env.PORT) || 3001;
 const app: Application = express();
 
-// Initialize database
-initDatabase();
+appdb.initDatabase();
 
 // Middleware
 app.use(express.json({ limit: REQUEST_SIZE_LIMIT }));

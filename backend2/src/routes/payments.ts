@@ -1,11 +1,12 @@
 import { Router } from 'express';
-// import { updateInscriptionPayment, getInscription, updateInscriptionLastCheckedBlock } from '../db/sqlite';
-import { updateInscriptionPayment, getInscription, updateInscriptionLastCheckedBlock } from '../db/pg';
+import { appdb } from '../db';
 import { getCurrentBlockHeight, checkPaymentToAddress } from '../services/utils';
-import { ErrorDetails, ApiErrorResponse, Inscription, PaymentStatusBody, InscriptionPayment } from '../types';
+import { ErrorDetails, ApiErrorResponse, PaymentStatusBody, InscriptionPayment } from '../types';
 import { Request, Response } from 'express';
 
 const router = Router();
+
+const { getInscription } = appdb;
 
 async function validatePaymentRequest(address: string, amount: string, sender: string, id: string) {
   const errors = [];
@@ -24,7 +25,6 @@ async function validatePaymentRequest(address: string, amount: string, sender: s
     return { error: { error: 'Invalid inscription ID format' } };
   }
 
-  // const inscription = (await getInscription.get(inscriptionId)) as Inscription | undefined;
   const inscription = await getInscription(inscriptionId);
 
   if (!inscription) {
@@ -110,10 +110,6 @@ router.post(
         inscription.required_amount,
         inscription.last_checked_block,
         currentBlock,
-        // (status: string, id: number) => updateInscriptionPayment.run(status, id),
-        (id: number, status: string) => updateInscriptionPayment(id, status),
-        // (id: number, lastCheckedBlock: number) => updateInscriptionLastCheckedBlock.run(id, lastCheckedBlock),
-        (id: number, lastCheckedBlock: number) => updateInscriptionLastCheckedBlock(id, lastCheckedBlock),
       );
 
       if (!paymentStatus.success) {

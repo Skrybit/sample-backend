@@ -1,9 +1,9 @@
 import { Router, Request, Response } from 'express';
-// import { getInscription, updateInscriptionPayment, updateInscriptionRevealTxId } from '../db/sqlite';
-import { getInscription, updateInscriptionPayment, updateInscriptionRevealTxId } from '../db/pg';
 import { broadcastTx } from '../services/utils';
+import { appdb } from '../db';
 import { ErrorDetails, ApiErrorResponse, BroadcastRevealResponse, BroadcastRevealTxBody } from '../types';
-// import { Inscription } from '../types';
+
+const { getInscription, updateInscriptionStatus, updateInscriptionRevealTxId } = appdb;
 
 const router = Router();
 
@@ -57,10 +57,8 @@ router.post(
     >,
   ) => {
     try {
-      // const { reveal_tx_hex: txHex, inscription_id: id } = req.body as BroadcastRevealTxBody;
       const { inscription_id: id } = req.body as BroadcastRevealTxBody;
 
-      // if (!txHex || !id) {
       if (!id) {
         return res.status(400).json({ error: 'Missing required fields' });
       }
@@ -71,7 +69,6 @@ router.post(
         return res.status(400).json({ error: 'Invalid inscription ID format' });
       }
 
-      // const inscription = getInscription.get(inscriptionId) as Inscription | undefined;
       const inscription = await getInscription(inscriptionId);
 
       if (!inscription) {
@@ -92,11 +89,15 @@ router.post(
         });
       }
 
-      // updateInscriptionPayment.run('completed', inscriptionId);
-      await updateInscriptionPayment(inscriptionId, 'completed');
+      await updateInscriptionStatus({
+        id: inscriptionId,
+        status: 'completed',
+      });
 
-      // updateInscriptionRevealTxId.run(broadcastResult.result, inscriptionId);
-      await updateInscriptionRevealTxId(inscriptionId, broadcastResult.result);
+      await updateInscriptionRevealTxId({
+        id: inscriptionId,
+        revealTxId: broadcastResult.result,
+      });
 
       res.json({
         reveal_tx_id: broadcastResult.result,

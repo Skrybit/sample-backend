@@ -135,7 +135,7 @@ const broadcastRevealTxHexStep = async () => {
 async function main() {
   try {
     // (optional) Get a list of current sender inscriptions
-    // await getSenderInscriptionsStep();
+    await getSenderInscriptionsStep();
     //
     // (optional) Check inscription status and details
     // await checkInscriptionStep();
@@ -147,7 +147,7 @@ async function main() {
     // (would trigger status update on remote end if paid)
     // (also will auto reveal and broadcast)
     // and return UTXO if it is there
-    await checkInscriptionPaymentStep();
+    // await checkInscriptionPaymentStep();
     //
     // (is done in the previous step)
     // 3. After funding and confirmation, create reveal and broadcast the revealTx

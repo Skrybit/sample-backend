@@ -206,7 +206,7 @@ router.get(
       const inscriptions = await getInscriptionBySender(senderAddress);
 
       if (inscriptions.length === 0) {
-        return res.status(400).json({ error: 'No inscriptions found for this sender' });
+        return res.json([]);
       }
 
       res.json(inscriptions.map(formatInscriptionResponse));
@@ -318,13 +318,19 @@ router.post(
   upload.single('file'),
   async (req: Request, res: Response<CreateRevealResponse | ApiErrorResponse>) => {
     try {
-      const { inscription_id: inscriptionId, commit_tx_id: commitTxId, vout, amount } = req.body as CreateRevealPayload;
+      const { inscription_id: insId, commit_tx_id: commitTxId, vout, amount } = req.body as CreateRevealPayload;
 
-      if (!req.file || !inscriptionId || !commitTxId || vout === undefined || !amount) {
+      if (!req.file || !insId || !commitTxId || vout === undefined || !amount) {
         return res.status(400).json({ error: 'Missing required parameters' });
       }
 
-      const inscription = await getInscription(parseInt(inscriptionId));
+      const inscriptionId = parseInt(insId);
+
+      if (isNaN(inscriptionId)) {
+        return res.status(400).json({ error: 'Invalid inscription ID' });
+      }
+
+      const inscription = await getInscription(inscriptionId);
 
       if (!inscription) {
         return res.status(400).json({ error: 'Inscription not found' });

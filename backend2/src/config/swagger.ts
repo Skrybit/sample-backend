@@ -151,10 +151,9 @@ export const swaggerOptions = {
         },
         BroadcastRevealTxBody: {
           type: 'object',
-          required: ['inscription_id', 'reveal_tx_hex'],
+          required: ['inscription_id'],
           properties: {
             inscription_id: { type: 'string' },
-            reveal_tx_hex: { type: 'string' },
           },
         },
         BroadcastRevealResponse: {

@@ -5,6 +5,7 @@ const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
   'http://10.11.0.225',
+  'http://10.11.0.118',
   'http://ui-test.skrybit.xyz',
 ];
 

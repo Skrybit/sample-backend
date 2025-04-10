@@ -141,7 +141,7 @@ export async function createReveal({
 
 export async function broadcastRevealTx(
   id: string,
-  txHex: string,
+  // txHex: string,
 ): Promise<ApiRes<BroadcastRevealResponse> | ApiErrRes> {
   const url = `${BASE_URL}/transactions/broadcast-reveal`;
 
@@ -150,7 +150,7 @@ export async function broadcastRevealTx(
       url,
       {
         inscription_id: id,
-        reveal_tx_hex: txHex,
+        // reveal_tx_hex: txHex,
       },
       {
         headers: {

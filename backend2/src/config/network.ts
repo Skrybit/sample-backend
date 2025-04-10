@@ -41,3 +41,17 @@ export const FEE_RATE = 1.5;
 export const REQUEST_SIZE_LIMIT = '10mb';
 
 console.log('Config RPC_CONFIG', RPC_CONFIG, RPC_URL);
+
+export const PG_POOL_CONFIG = {
+  host: process.env.PGHOST || 'localhost',
+  port: Number(process.env.PGPORT) || 5432,
+  user: process.env.PGUSER || 'postgres',
+  password: process.env.PGPASSWORD || 'postgres',
+  database: process.env.PGDATABASE || 'ordinals',
+  pool_mode: 'session',
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
+};
+
+console.log('Config PG_POOL_CONFIG', PG_POOL_CONFIG);

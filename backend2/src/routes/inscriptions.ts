@@ -4,8 +4,14 @@ import { upload } from '../middleware/upload';
 import { createInscription } from '../createInscription';
 import { getPublicKeyFromWif, getPrivateKey } from '../utils/walletUtils';
 import { getCurrentBlockHeight } from '../services/utils';
-import { getUTCTimestampInSec, timestampToDateString } from '../utils/dateUtils';
-import { insertInscription, getInscription, getInscriptionBySender, updateInscription } from '../db/sqlite';
+// import { getUTCTimestampInSec, timestampToDateString } from '../utils/dateUtils';
+// import { insertInscription, getInscription, getInscriptionBySender, updateInscription } from '../db/sqlite';
+import {
+  createFullInscriptionRecord as insertInscription,
+  updateInscription,
+  getInscriptionBySender,
+  getInscription,
+} from '../db/pg';
 import {
   Inscription,
   CreateRevealPayload,
@@ -123,13 +129,14 @@ router.post(
       const fileBuffer = fs.readFileSync(req.file.path);
       const inscription = createInscription(fileBuffer, parseFloat(feeRate), recipientAddress);
 
-      const timestamp = getUTCTimestampInSec();
+      // const timestamp = getUTCTimestampInSec();
 
-      const createdAtUtc = timestampToDateString(timestamp);
+      // const createdAtUtc = timestampToDateString(timestamp);
 
       const createdBlock = await getCurrentBlockHeight();
 
-      const result = insertInscription.run(
+      // const result = insertInscription.run(
+      const result = await insertInscription(
         inscription.tempPrivateKey,
         inscription.address,
         inscription.requiredAmount,
@@ -137,12 +144,13 @@ router.post(
         recipientAddress,
         senderAddress,
         feeRate,
-        createdAtUtc,
+        // createdAtUtc,
         createdBlock,
-        createdBlock,
+        // createdBlock,
       );
 
-      const lastInsertRowid = result.lastInsertRowid;
+      // const lastInsertRowid = result.lastInsertRowid;
+      const lastInsertRowid = result.id;
 
       const broadcastResult = await createWalletAndAddressDescriptor(lastInsertRowid, inscription.address);
 
@@ -208,7 +216,8 @@ router.get(
   ) => {
     try {
       const senderAddress = req.params.sender_address;
-      const inscriptions = getInscriptionBySender.all(senderAddress) as Inscription[];
+      // const inscriptions = getInscriptionBySender.all(senderAddress) as Inscription[];
+      const inscriptions = (await getInscriptionBySender(senderAddress)) as Inscription[];
 
       if (inscriptions.length === 0) {
         return res.status(400).json({ error: 'No inscriptions found for this sender' });
@@ -258,7 +267,8 @@ router.get(
         return res.status(400).json({ error: 'Invalid inscription ID' });
       }
 
-      const inscription = await getInscription.get(inscriptionId);
+      // const inscription = await getInscription.get(inscriptionId);
+      const inscription = await getInscription(inscriptionId);
 
       if (!inscription) {
         return res.status(400).json({ error: 'Inscription not found' });
@@ -329,7 +339,8 @@ router.post(
         return res.status(400).json({ error: 'Missing required parameters' });
       }
 
-      const inscription = getInscription.get(parseInt(inscriptionId)) as Inscription;
+      // const inscription = getInscription.get(parseInt(inscriptionId)) as Inscription;
+      const inscription = await getInscription(parseInt(inscriptionId));
 
       if (!inscription) {
         return res.status(400).json({ error: 'Inscription not found' });
@@ -347,7 +358,8 @@ router.post(
       const revealTx = revealInscription.createRevealTx(commitTxId, parseInt(vout), parseInt(amount));
 
       // updates the inscription with the reveal_tx_hex
-      updateInscription.run(commitTxId.trim(), revealTx, 'reveal_ready', Number(inscriptionId));
+      // updateInscription.run(commitTxId.trim(), revealTx, 'reveal_ready', Number(inscriptionId));
+      await updateInscription(Number(inscriptionId), commitTxId.trim(), revealTx, 'reveal_ready');
 
       const privKeyObj = getPrivateKey(inscription.temp_private_key);
       const pubkey = getPublicKeyFromWif(privKeyObj.wif);
@@ -355,7 +367,7 @@ router.post(
       res.json({
         inscription_id: inscription.id + '',
         commit_tx_id: commitTxId.trim(),
-        reveal_tx_hex: revealTx,
+        // reveal_tx_hex: revealTx,
         debug: {
           payment_address: revealInscription.address,
           payment_pubkey: pubkey.hex,

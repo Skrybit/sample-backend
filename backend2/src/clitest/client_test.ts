@@ -14,9 +14,9 @@ const INSCRIBE_FILE = 'test_sm.txt'; // must be in the same directory
 // const INSCRIBE_FILE = 'skrybit.mp4'; // must be in the same directory
 
 // inscription data
-const inscriptionId = 72;
+const inscriptionId = 3;
 const inscriptionRequiredAmount = '1093';
-const inscriptionPaymentAddress = 'tb1p99nrczuanc8anrvdxjgcf7hlhyjup907wpqyd5cyvhtrdv248ccssezzvr';
+const inscriptionPaymentAddress = 'tb1pvgc8k6cgwpe0mqgkyn4948zjeaa23lhe8qfsa96s8pkv3e49pc6sxdsg57';
 
 // utxo data
 const inscriptionUtxoVout = 0;
@@ -24,9 +24,6 @@ const inscriptionUtxoVout = 0;
 // const amount = 0.00001; // 1_000
 const inscriptionUtxoAmount = 0.00001093;
 const inscriptionUtxoTxId = '';
-
-// reveal data
-const inscriptionRevealTxHex = '';
 
 const getSenderInscriptionsStep = async () => {
   // (optional) Get a list of current sender inscriptions
@@ -68,7 +65,7 @@ const createCommitStep = async () => {
 const checkInscriptionPaymentStep = async () => {
   // 2. Check inscription payment
   // (would trigger status update on remote end if paid)
-  // and return UTXO if it is there
+  // and return UTXO if it is there and reveal and broadcast
   const address = inscriptionPaymentAddress;
   const id = inscriptionId + '';
   const requiredAmount = inscriptionRequiredAmount;
@@ -94,8 +91,8 @@ const checkInscriptionPaymentStep = async () => {
     console.log('Full server response of the reveal after payment check: ', revealResult);
 
     if (revealResult.success) {
-      const revealTxHex = revealResult.result.reveal_tx_hex;
-      const revealTxResult = await broadcastRevealTx(id, revealTxHex);
+      // const revealTxHex = revealResult.result.reveal_tx_hex;
+      const revealTxResult = await broadcastRevealTx(id);
       // console.log('revealTxHex len', revealTxHex.length);
       console.log('\nReveal Transaction Broadcasted result (from check payment):', revealTxResult);
     }
@@ -123,10 +120,11 @@ const getInscriptionRevealDetailsStep = async () => {
   console.log('Full server response: ', revealResult);
 
   if (revealResult.success) {
-    console.log('Full server response!: ', revealResult.result.reveal_tx_hex);
-    const revealTxHex = revealResult.result.reveal_tx_hex;
-    const revealTxResult = await broadcastRevealTx(id, revealTxHex);
-    console.log('revealTxHex len', revealTxHex.length);
+    // console.log('Full server response!: ', revealResult.result.reveal_tx_hex);
+    // const revealTxHex = revealResult.result.reveal_tx_hex;
+    // const revealTxResult = await broadcastRevealTx(id, revealTxHex);
+    const revealTxResult = await broadcastRevealTx(id);
+    // console.log('revealTxHex len', revealTxHex.length);
     console.log('\nReveal Transaction Broadcasted result:', revealTxResult);
   }
 };
@@ -135,9 +133,10 @@ const broadcastRevealTxHexStep = async () => {
   // 4. Broadcast reveal transaction
   const id = inscriptionId + '';
 
-  const revealTxHex = inscriptionRevealTxHex;
+  // const revealTxHex = inscriptionRevealTxHex;
 
-  const revealTxResult = await broadcastRevealTx(id, revealTxHex);
+  // const revealTxResult = await broadcastRevealTx(id, revealTxHex);
+  const revealTxResult = await broadcastRevealTx(id);
   console.log('\nReveal Transaction Broadcasted result:', revealTxResult);
   if (!revealTxResult.success) {
     console.log('\nReveal Transaction Broadcasted result:', revealTxResult.error);

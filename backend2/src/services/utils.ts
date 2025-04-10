@@ -1,4 +1,4 @@
-import { RunResult } from 'better-sqlite3';
+// import { RunResult } from 'better-sqlite3';
 import { btcToSats } from '../utils/helpers';
 import {
   getErrorDetails,
@@ -8,7 +8,6 @@ import {
   getDescriptorChecksum,
   getBalance,
   rescanBlockchain,
-  // getBlockAtTimeApproximate,
   createWallet,
   broadcastRevealTransaction,
   buildRpcWalletName,
@@ -17,8 +16,11 @@ import {
 
 import { type ErrorDetails, PaymentUtxo } from '../types';
 
-type UpdateInscriptionPaymentFn = (status: string, id: number) => RunResult;
-type UpdateInscriptionBlockFn = (id: number, lastCheckedBlock: number) => RunResult;
+// type UpdateInscriptionPaymentFn = (status: string, id: number) => RunResult;
+// type UpdateInscriptionBlockFn = (id: number, lastCheckedBlock: number) => RunResult;
+
+type UpdateInscriptionPaymentFn = (id: number, status: string) => Promise<number>;
+type UpdateInscriptionBlockFn = (id: number, lastCheckedBlock: number) => Promise<number>;
 
 export async function getCurrentBlockHeight() {
   const currentBlockchainInfo = await getCurrentHeight();
@@ -41,7 +43,9 @@ export async function checkPaymentToAddress(
   updateInscriptionPayment: UpdateInscriptionPaymentFn,
   updateInscriptionBlock: UpdateInscriptionBlockFn,
 ): Promise<
-  { success: true; result: boolean; utxo: PaymentUtxo } | { success: false; utxo: null; error: ErrorDetails }
+  | { success: true; result: boolean; utxo: PaymentUtxo }
+  | { success: true; result: true; utxo: null }
+  | { success: false; utxo: null; error: ErrorDetails }
 > {
   console.log(`Checking ${address} for ${amountInSats}`);
 
@@ -53,12 +57,17 @@ export async function checkPaymentToAddress(
     return { success: false, utxo: null, error: errorDetails };
   }
 
+  if (inscriptionStatus === 'paid' || inscriptionStatus === 'reveal_ready' || inscriptionStatus === 'completed') {
+    console.log('NOT 1 err checkPaymentToAddress 0 status', inscriptionStatus);
+    return { success: true, result: true, utxo: null };
+  }
   const balanceResult = await getBalance(walletName);
 
   if (!balanceResult.success) {
     console.log('err checkPaymentToAddress 4');
     return { success: false, utxo: null, error: balanceResult.error };
   }
+
   console.log('balance ', balanceResult.result);
 
   const walletUtxoResultW = await getPaymentUtxo(inscriptionId, address, amountInSats);
@@ -66,15 +75,16 @@ export async function checkPaymentToAddress(
   if (!walletUtxoResultW.success) {
     console.log('err checkPaymentToAddress 0a');
 
-    updateInscriptionPayment('scanning', inscriptionId);
+    await updateInscriptionPayment(inscriptionId, 'scanning');
 
     if (currentBlock && currentBlock >= lastCheckedBlock) {
-      updateInscriptionBlock(currentBlock, inscriptionId);
+      // await updateInscriptionBlock(currentBlock, inscriptionId);
+      await updateInscriptionBlock(inscriptionId, currentBlock);
     }
 
     await rescanBlockchain(walletName, lastCheckedBlock);
 
-    updateInscriptionPayment(inscriptionStatus, inscriptionId);
+    await updateInscriptionPayment(inscriptionId, inscriptionStatus);
 
     return { success: false, utxo: null, error: walletUtxoResultW.error };
   }
@@ -82,7 +92,7 @@ export async function checkPaymentToAddress(
   const walletUtxo = walletUtxoResultW.result;
 
   if (inscriptionStatus === 'paid' || inscriptionStatus === 'reveal_ready' || inscriptionStatus === 'completed') {
-    console.log('NOT err checkPaymentToAddress 0 status', inscriptionStatus);
+    console.log('NOT 2 err checkPaymentToAddress 0 status', inscriptionStatus);
     return { success: true, result: true, utxo: walletUtxo };
   }
 
@@ -94,13 +104,13 @@ export async function checkPaymentToAddress(
 
   if (isPaid) {
     if (inscriptionStatus === 'pending') {
-      updateInscriptionPayment('paid', inscriptionId);
+      await updateInscriptionPayment(inscriptionId, 'paid');
     }
     console.log('NOT err checkPaymentToAddress 5');
     return { success: true, result: true, utxo: walletUtxo };
   }
 
-  updateInscriptionPayment(inscriptionStatus, inscriptionId);
+  await updateInscriptionPayment(inscriptionId, inscriptionStatus);
 
   return {
     success: false,
@@ -166,20 +176,18 @@ export async function getPaymentUtxo(
 export async function broadcastTx(
   inscriptionId: number,
   givenTxHex: string,
-  revealTxHex?: string,
 ): Promise<{ success: true; result: string } | { success: false; error: ErrorDetails }> {
-  if (revealTxHex !== givenTxHex) {
+  if (!givenTxHex) {
     console.log('err broadcastTx 1 ');
     return {
       success: false,
-      error: getErrorDetails(
-        new Error('given tx does not match the revealTxHex of the inscription with an id' + inscriptionId),
-      ),
+      error: getErrorDetails(new Error('reveal tx hex is required for inscription with an id' + inscriptionId)),
     };
   }
+
   const broadcastResult = await broadcastRevealTransaction(givenTxHex);
 
-  console.log('broadcastResult u', broadcastResult);
+  console.log('broadcastResult update', broadcastResult);
 
   if (!broadcastResult.success) {
     console.log('err broadcastTx 2 ');

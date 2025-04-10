@@ -100,7 +100,7 @@ export interface CreateRevealPayload {
 export interface CreateRevealResponse {
   inscription_id: string;
   commit_tx_id: string;
-  reveal_tx_hex: string;
+  // reveal_tx_hex: string;
   debug: {
     payment_address: string;
     payment_pubkey: string;
@@ -115,7 +115,7 @@ export interface CreateRevealResponse {
 // step 6
 export interface BroadcastRevealTxBody {
   inscription_id: string;
-  reveal_tx_hex: string;
+  // reveal_tx_hex: string;
 }
 
 // step 6

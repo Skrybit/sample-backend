@@ -18,6 +18,8 @@ export async function initDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
+      CREATE INDEX IF NOT EXISTS wallets_address_idx ON wallets (address);
+
       CREATE TABLE  IF NOT EXISTS inscriptions (
         id SERIAL PRIMARY KEY,
         payment_address_id INTEGER NOT NULL REFERENCES wallets(id),
@@ -30,6 +32,12 @@ export async function initDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
+
+      CREATE INDEX IF NOT EXISTS inscriptions_payment_address_id_idx ON inscriptions (payment_address_id);
+      CREATE INDEX IF NOT EXISTS inscriptions_sender_address_id_idx ON inscriptions (sender_address_id);
+      CREATE INDEX IF NOT EXISTS inscriptions_recipient_address_id_idx ON inscriptions (recipient_address_id);
+      CREATE INDEX IF NOT EXISTS inscriptions_created_at_idx ON inscriptions (created_at);
+
       CREATE TABLE  IF NOT EXISTS commit_transactions (
         id SERIAL PRIMARY KEY,
         inscription_id INTEGER NOT NULL REFERENCES inscriptions(id) on delete CASCADE UNIQUE,
@@ -39,6 +47,9 @@ export async function initDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
+      CREATE INDEX IF NOT EXISTS commit_transactions_inscription_id_idx ON commit_transactions (inscription_id);
+      CREATE INDEX IF NOT EXISTS commit_transactions_block_number_idx ON commit_transactions (block_number);
+
       CREATE TABLE  IF NOT EXISTS reveal_transactions (
         id SERIAL PRIMARY KEY,
         inscription_id INTEGER NOT NULL REFERENCES inscriptions(id) on delete CASCADE UNIQUE,
@@ -46,6 +57,9 @@ export async function initDatabase() {
         block_number INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+
+      CREATE INDEX IF NOT EXISTS reveal_transactions_inscription_id_idx ON reveal_transactions (inscription_id);
+      CREATE INDEX IF NOT EXISTS reveal_transactions_block_number_idx ON reveal_transactions (block_number);
 
       CREATE TABLE  IF NOT EXISTS status_updates (
         id SERIAL PRIMARY KEY,
@@ -56,12 +70,19 @@ export async function initDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
+      CREATE INDEX IF NOT EXISTS status_updates_inscription_id_idx ON status_updates (inscription_id);
+      CREATE INDEX IF NOT EXISTS status_updates_new_status_idx ON status_updates (new_status);
+      CREATE INDEX IF NOT EXISTS status_updates_inscription_id_created_at_idx ON status_updates (inscription_id, created_at DESC);
+
       CREATE TABLE  IF NOT EXISTS block_checks (
         id SERIAL PRIMARY KEY,
         inscription_id INTEGER NOT NULL REFERENCES inscriptions(id) on delete CASCADE,
         block_number INTEGER NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+
+     CREATE INDEX IF NOT EXISTS block_checks_inscription_id_idx ON block_checks (inscription_id);
+     CREATE INDEX IF NOT EXISTS block_checks_inscription_id_block_number_idx ON block_checks (inscription_id, block_number);
 
     `);
     console.log('PostgreSQL database initialized successfully');

@@ -119,7 +119,7 @@ router.post(
         return res.status(400).json({ error: 'Missing required parameters' });
       }
 
-      // await deletePendingInscriptionBySender(senderAddress);
+      await appdb.deletePendingInscriptionBySender(senderAddress);
 
       const fileBuffer = fs.readFileSync(req.file.path);
       const inscription = createInscription(fileBuffer, parseFloat(feeRate), recipientAddress);
@@ -331,9 +331,7 @@ router.post(
       }
 
       const inscription = await appdb.getInscription(inscriptionId);
-      console.log('!!!! Q inscription', inscription);
 
-      console.log('!! commitTxId', commitTxId);
       if (!inscription) {
         return res.status(400).json({ error: 'Inscription not found' });
       }
@@ -346,7 +344,6 @@ router.post(
         inscription.recipient_address,
         inscription.temp_private_key,
       );
-      console.log('revealInscription', revealInscription);
 
       const revealTx = revealInscription.createRevealTx(commitTxId, parseInt(vout), parseInt(amount));
 
@@ -361,11 +358,10 @@ router.post(
 
       const currentBlock = await getCurrentBlockHeight();
 
-      await appdb.insertTransaction({
+      await appdb.insertCommitTransaction({
         inscriptionId: Number(inscriptionId),
-        type: 'commit',
         txId: commitTxId.trim(),
-        txHex: revealTx,
+        revealTxHex: revealTx,
         blockNumber: currentBlock,
       });
 

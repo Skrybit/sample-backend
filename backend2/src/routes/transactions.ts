@@ -4,8 +4,6 @@ import { getCurrentBlockHeight } from '../services/utils';
 import { appdb } from '../db';
 import { ErrorDetails, ApiErrorResponse, BroadcastRevealResponse, BroadcastRevealTxBody } from '../types';
 
-// const { getInscription, updateInscriptionStatus, updateInscriptionRevealTxId } = appdb;
-
 const router = Router();
 
 /**
@@ -72,21 +70,15 @@ router.post(
 
       const inscription = await appdb.getInscription(inscriptionId);
 
-      console.log('OUR inscription', inscription);
-
       if (!inscription) {
         return res.status(400).json({ error: 'Inscription not found' });
       }
 
-      const revealTxHex = await appdb.getTransactionsByInscription(inscriptionId);
-      console.log('revealTxHex!!', revealTxHex);
-
-      // if (!inscription.reveal_tx_hex) {
-      if (!revealTxHex) {
+      if (!inscription.reveal_tx_hex) {
         return res.status(400).json({ error: 'Inscription has no reveal_tx_hex' });
       }
 
-      const broadcastResult = await broadcastTx(inscriptionId, revealTxHex);
+      const broadcastResult = await broadcastTx(inscriptionId, inscription.reveal_tx_hex);
 
       if (!broadcastResult.success) {
         return res.status(400).json({
@@ -96,6 +88,19 @@ router.post(
         });
       }
 
+      // await updateInscriptionRevealTxId({
+      //   id: inscriptionId,
+      //   revealTxId: broadcastResult.result,
+      // });
+
+      const currentBlock = await getCurrentBlockHeight();
+
+      await appdb.insertRevealTransaction({
+        inscriptionId,
+        txId: broadcastResult.result,
+        blockNumber: currentBlock,
+      });
+
       // await updateInscriptionStatus({
       //   id: inscriptionId,
       //   status: 'completed',
@@ -104,21 +109,6 @@ router.post(
       await appdb.updateInscriptionStatus({
         id: inscriptionId,
         status: 'completed',
-      });
-
-      // await updateInscriptionRevealTxId({
-      //   id: inscriptionId,
-      //   revealTxId: broadcastResult.result,
-      // });
-
-      const currentBlock = await getCurrentBlockHeight();
-
-      await appdb.insertTransaction({
-        inscriptionId,
-        type: 'reveal',
-        txId: broadcastResult.result,
-        txHex: '',
-        blockNumber: currentBlock,
       });
 
       res.json({

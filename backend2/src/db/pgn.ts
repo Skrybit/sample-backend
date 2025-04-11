@@ -1,6 +1,5 @@
 import { Pool, PoolClient, QueryResult } from 'pg';
 import { Inscription } from '../types';
-type TransactionType = 'commit' | 'reveal';
 
 import { PG_POOL_CONFIG } from '../config/network';
 
@@ -31,27 +30,35 @@ export async function initDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
-      CREATE TABLE  IF NOT EXISTS transactions (
+      CREATE TABLE  IF NOT EXISTS commit_transactions (
         id SERIAL PRIMARY KEY,
-        inscription_id INTEGER NOT NULL REFERENCES inscriptions(id),
-        type TEXT NOT NULL,
+        inscription_id INTEGER NOT NULL REFERENCES inscriptions(id) on delete CASCADE UNIQUE,
         tx_id TEXT,
-        tx_hex TEXT NOT NULL,
+        reveal_tx_hex TEXT NOT NULL,
+        block_number INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE  IF NOT EXISTS reveal_transactions (
+        id SERIAL PRIMARY KEY,
+        inscription_id INTEGER NOT NULL REFERENCES inscriptions(id) on delete CASCADE UNIQUE,
+        tx_id TEXT,
         block_number INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
       CREATE TABLE  IF NOT EXISTS status_updates (
         id SERIAL PRIMARY KEY,
-        inscription_id INTEGER NOT NULL REFERENCES inscriptions(id),
+        inscription_id INTEGER NOT NULL REFERENCES inscriptions(id) on delete CASCADE,
         old_status TEXT,
         new_status TEXT NOT NULL,
+        block_number INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
       CREATE TABLE  IF NOT EXISTS block_checks (
         id SERIAL PRIMARY KEY,
-        inscription_id INTEGER NOT NULL REFERENCES inscriptions(id),
+        inscription_id INTEGER NOT NULL REFERENCES inscriptions(id) on delete CASCADE,
         block_number INTEGER NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
@@ -71,15 +78,13 @@ async function query(text: string, params?: any[]): Promise<QueryResult> {
   try {
     return await client.query(text, params);
   } finally {
-    client.release();
-    // if (client) client.release();
+    if (client) client.release();
   }
 }
 
 // ======================
 // Wallet Operations
 // ======================
-
 export async function insertWallet(address: string, privateKey?: string) {
   const result = await query(
     `INSERT INTO wallets (address, private_key)
@@ -89,62 +94,38 @@ export async function insertWallet(address: string, privateKey?: string) {
     [address, privateKey],
   );
 
-  // console.log('insertWallet result', result);
-
   return result;
-}
-
-export async function getWalletByAddress(address: string) {
-  const result = await query(`SELECT * FROM wallets WHERE address = $1`, [address]);
-  return result.rows[0];
 }
 
 // ======================
 // Inscription Operations
 // ======================
-
-export async function insertInscription(
-  paymentAddressId: number,
-  senderAddressId: number,
-  recipientAddressId: number,
-  requiredAmount: number,
-  fileSize: number,
-  feeRate: number,
-  createdBlock: number,
-) {
-  const result = await query(
-    `INSERT INTO inscriptions (
-      payment_address_id,
-      sender_address_id,
-      recipient_address_id,
-      required_amount,
-      file_size,
-      fee_rate,
-      created_block
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-    RETURNING *`,
-    [paymentAddressId, senderAddressId, recipientAddressId, requiredAmount, fileSize, feeRate, createdBlock],
-  );
-  // console.log('insertInscription result ', result);
-  return result.rows[0] || null;
-}
-
 export async function getInscription(id: number): Promise<Inscription> {
   const result = await query(
     `SELECT 
       i.*,
       w_pay.address as address,
-      w_pay.private_key as private_key,
+      w_pay.private_key as temp_private_key,
       w_send.address as sender_address,
       w_recp.address as recipient_address,
-      (SELECT block_number FROM block_checks 
-       WHERE inscription_id = i.id 
-       ORDER BY created_at DESC 
+      t_commit.tx_id as commit_tx_id,
+      t_commit.reveal_tx_hex as reveal_tx_hex,
+      t_reveal.tx_id as reveal_tx_id,
+      (SELECT new_status
+       FROM status_updates
+       WHERE inscription_id = i.id
+       ORDER BY created_at DESC
+       LIMIT 1) as status,
+      (SELECT block_number FROM block_checks
+       WHERE inscription_id = i.id
+       ORDER BY created_at DESC
        LIMIT 1) as last_checked_block
     FROM inscriptions i
     JOIN wallets w_pay ON i.payment_address_id = w_pay.id
     JOIN wallets w_send ON i.sender_address_id = w_send.id
     JOIN wallets w_recp ON i.recipient_address_id = w_recp.id
+    LEFT JOIN commit_transactions t_commit ON i.id = t_commit.inscription_id
+    LEFT JOIN reveal_transactions t_reveal ON i.id = t_reveal.inscription_id
     WHERE i.id = $1`,
     [id],
   );
@@ -156,8 +137,13 @@ export async function getInscriptionBySender(senderAddress: string) {
     `SELECT 
       i.*,
       w_pay.address as address,
-      w_pay.private_key as private_key,
+      w_pay.private_key as temp_private_key,
       w_send.address as sender_address,
+      (SELECT new_status
+       FROM status_updates
+       WHERE inscription_id = i.id
+       ORDER BY created_at DESC
+       LIMIT 1) as status,
       w_recp.address as recipient_address
     FROM inscriptions i
     JOIN wallets w_send ON i.sender_address_id = w_send.id
@@ -169,56 +155,109 @@ export async function getInscriptionBySender(senderAddress: string) {
   return result.rows as Inscription[];
 }
 
+export async function getPendingInscriptionBySender(senderAddress: string) {
+  const result = await query(
+    `SELECT 
+      i.*,
+      w_send.address as sender_address,
+      su.new_status as status
+    FROM inscriptions i
+    JOIN wallets w_send ON i.sender_address_id = w_send.id
+    LEFT JOIN LATERAL (
+      SELECT new_status
+      FROM status_updates
+      WHERE inscription_id = i.id
+      ORDER BY created_at DESC
+      LIMIT 1
+    ) su ON true
+    WHERE w_send.address = $1 AND su.new_status = 'pending'`,
+    [senderAddress],
+  );
+
+  return result.rows as Inscription[];
+}
+
 // ======================
 // Transaction Operations
 // ======================
-
-export async function insertTransaction({
+export async function insertCommitTransaction({
   inscriptionId,
-  type,
   txId,
-  txHex,
+  revealTxHex,
   blockNumber,
 }: {
   inscriptionId: number;
-  type: TransactionType;
   txId: string;
-  txHex: string;
+  revealTxHex: string;
   blockNumber: number;
 }) {
   const result = await query(
-    `INSERT INTO transactions (
+    `INSERT INTO commit_transactions (
       inscription_id,
-      type,
       tx_id,
-      tx_hex,
+      reveal_tx_hex,
       block_number
-    ) VALUES ($1, $2, $3, $4, $5)
+    ) VALUES ($1, $2, $3 , $4 )
+       ON CONFLICT (inscription_id) DO UPDATE SET tx_id = $2 , reveal_tx_hex = $3
     RETURNING *`,
-    [inscriptionId, type, txId, txHex, blockNumber],
+    [inscriptionId, txId, revealTxHex, blockNumber],
   );
-  // console.log('insertTransaction result', result);
 
   return result;
 }
 
-export async function getTransactionsByInscription(inscriptionId: number, txType = 'commit') {
+export async function insertRevealTransaction({
+  inscriptionId,
+  txId,
+  blockNumber,
+}: {
+  inscriptionId: number;
+  txId: string;
+  blockNumber: number;
+}) {
+  const result = await query(
+    `INSERT INTO reveal_transactions (
+      inscription_id,
+      tx_id,
+      block_number
+    ) VALUES ($1, $2, $3 )
+       ON CONFLICT (inscription_id) DO UPDATE SET tx_id = $2
+    RETURNING *`,
+    [inscriptionId, txId, blockNumber],
+  );
+
+  return result;
+}
+
+export async function getRevelaTransaction(inscriptionId: number) {
   const result = await query(
     `SELECT * 
-    FROM transactions 
-    WHERE inscription_id = $1 and type = $2
+    FROM reveal_transactions 
+    WHERE inscription_id = $1 
     ORDER BY created_at DESC 
     LIMIT 1
   `,
-    [inscriptionId, txType],
+    [inscriptionId],
   );
-  return result.rows[0]?.tx_hex || '';
+  return result.rows[0] || '';
+}
+
+export async function getCommitTransaction(inscriptionId: number) {
+  const result = await query(
+    `SELECT * 
+    FROM commit_transactions
+    WHERE inscription_id = $1
+    ORDER BY created_at DESC
+    LIMIT 1
+  `,
+    [inscriptionId],
+  );
+  return result.rows[0] || '';
 }
 
 // ======================
 // Status Operations
 // ======================
-
 export async function insertStatusUpdate(inscriptionId: number, oldStatus: string | null, newStatus: string) {
   const result = await query(
     `INSERT INTO status_updates (
@@ -229,18 +268,7 @@ export async function insertStatusUpdate(inscriptionId: number, oldStatus: strin
     RETURNING *`,
     [inscriptionId, oldStatus, newStatus],
   );
-  // console.log('insertStatusUpdate result', result);
   return result;
-}
-
-export async function getStatusHistory(inscriptionId: number) {
-  const result = await query(
-    `SELECT * FROM status_updates 
-    WHERE inscription_id = $1 
-    ORDER BY created_at DESC`,
-    [inscriptionId],
-  );
-  return result.rows;
 }
 
 export async function getCurrentStatus(inscriptionId: number) {
@@ -252,14 +280,22 @@ export async function getCurrentStatus(inscriptionId: number) {
     LIMIT 1`,
     [inscriptionId],
   );
-  // console.log('getCurrentStatus result', result);
   return result.rows[0]?.new_status || null;
+}
+
+// helper function
+export async function updateInscriptionStatus({ id, status }: { id: number; status: string }) {
+  const currentStatus = await getCurrentStatus(id);
+  if (currentStatus === status) {
+    return;
+  }
+  const result = await insertStatusUpdate(id, currentStatus, status);
+  return result;
 }
 
 // ======================
 // Block Check Operations
 // ======================
-
 export async function insertBlockCheck({ id, blockNumber }: { id: number; blockNumber: number }) {
   const result = await query(
     `INSERT INTO block_checks (inscription_id, block_number)
@@ -267,24 +303,35 @@ export async function insertBlockCheck({ id, blockNumber }: { id: number; blockN
     RETURNING *`,
     [id, blockNumber],
   );
-  // console.log('insertBlockCheck result', result);
   return result;
 }
 
-export async function getBlockCheckHistory(inscriptionId: number) {
+export async function getLastCheckedBlock(inscriptionId: number): Promise<number> {
   const result = await query(
-    `SELECT * FROM block_checks 
-    WHERE inscription_id = $1 
-    ORDER BY created_at DESC`,
+    `
+      SELECT block_number FROM block_checks
+       WHERE inscription_id = $1
+       ORDER BY created_at DESC
+       LIMIT 1
+    `,
     [inscriptionId],
   );
-  return result.rows;
+
+  return result.rows[0]?.block_number || 0;
+}
+
+export async function updateLastCheckedBlock({ id, blockNumber }: { id: number; blockNumber: number }) {
+  const lastInsertedBlock = await getLastCheckedBlock(id);
+  if (lastInsertedBlock === blockNumber) {
+    return;
+  }
+  const result = await insertBlockCheck({ id, blockNumber });
+  return result;
 }
 
 // ======================
 // Complex Operations
 // ======================
-
 export async function createFullInscriptionRecord({
   tempPrivateKey,
   address,
@@ -360,8 +407,6 @@ export async function createFullInscriptionRecord({
       ],
     );
 
-    // console.log('inscriptionResult ', inscriptionResult);
-
     const inscriptionId = inscriptionResult.rows[0].id;
 
     // Record initial status
@@ -379,7 +424,6 @@ export async function createFullInscriptionRecord({
     );
 
     await client.query('COMMIT');
-    // console.log('!! inscriptionId', inscriptionId);
 
     return { id: inscriptionId };
   } catch (error) {
@@ -390,19 +434,16 @@ export async function createFullInscriptionRecord({
   }
 }
 
-export async function updateInscriptionStatus({ id, status }: { id: number; status: string }) {
-  const currentStatus = await getCurrentStatus(id);
-  const result = await insertStatusUpdate(id, currentStatus, status);
-  // console.log('insertStatusUpdate result', result);
-  return result;
-}
-
 export async function deletePendingInscriptionBySender(senderAddress: string, status = 'pending'): Promise<number> {
-  const result = await query('DELETE FROM inscriptions WHERE sender_address = $1 and status = $2', [
-    senderAddress,
-    status,
-  ]);
-  console.log('delete result', result);
+  const rows = await getPendingInscriptionBySender(senderAddress);
+
+  const rowsId = rows.map((el) => el.id);
+
+  if (!rowsId) {
+    return 0;
+  }
+  const result = await query(`DELETE FROM inscriptions WHERE id = ANY($1::int[])`, [rowsId]);
+
   return result.rowCount || 0;
 }
 

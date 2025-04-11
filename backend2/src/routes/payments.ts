@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { appdb } from '../db';
-import { getCurrentBlockHeight, checkPaymentToAddress } from '../services/utils';
+import { checkPaymentToAddress } from '../services/utils';
 import { ErrorDetails, ApiErrorResponse, PaymentStatusBody, InscriptionPayment } from '../types';
 import { Request, Response } from 'express';
 
@@ -24,7 +24,6 @@ async function validatePaymentRequest(address: string, amount: string, sender: s
   }
 
   const inscription = await appdb.getInscription(inscriptionId);
-  // console.log('OUR inscription ', inscription);
 
   if (!inscription) {
     return { error: { error: 'Inscription not found' } };
@@ -100,20 +99,12 @@ router.post(
 
       const { inscription } = validation;
 
-      // console.log('aaa inscription', inscription);
-      const currentStatus = await appdb.getCurrentStatus(inscription.id);
-      // console.log('aaa currentStatus', currentStatus);
-
-      const currentBlock = await getCurrentBlockHeight();
-
       const paymentStatus = await checkPaymentToAddress(
         inscription.id,
-        // inscription.status,
-        currentStatus,
+        inscription.status,
         inscription.address,
         inscription.required_amount,
         inscription.last_checked_block,
-        currentBlock,
       );
 
       if (!paymentStatus.success) {

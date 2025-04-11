@@ -6,21 +6,21 @@ export interface ApiErrorResponse {
 
 // used in routes
 export interface Inscription {
-  id: number;
-  temp_private_key: string;
-  address: string;
-  required_amount: number;
-  file_size: number;
-  recipient_address: string;
-  sender_address: string;
-  fee_rate: number;
-  created_at: string;
-  commit_tx_id?: string;
-  reveal_tx_hex?: string;
-  status: 'pending' | 'paid' | 'reveal_ready' | 'completed';
-  reveal_tx_id: string;
-  created_block: number;
-  last_checked_block: number;
+  id: number; // inscription
+  temp_private_key: string; // wallets
+  address: string; // wallets
+  required_amount: number; // inscription
+  file_size: number; // inscription
+  recipient_address: string; // wallets
+  sender_address: string; // wallets
+  fee_rate: number; // inscription
+  created_at: string; // inscription
+  commit_tx_id?: string; // commit_transactions
+  reveal_tx_hex?: string; // commit_transactions
+  status: 'pending' | 'paid' | 'reveal_ready' | 'completed'; // status_updates
+  reveal_tx_id: string; // reveal_transactions
+  created_block: number; // inscription
+  last_checked_block: number; // block_checks
 }
 
 // step 1

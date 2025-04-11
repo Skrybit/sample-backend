@@ -20,14 +20,6 @@ import { createWalletAndAddressDescriptor } from '../services/utils';
 
 const router = Router();
 
-const {
-  deletePendingInscriptionBySender,
-  insertInscription,
-  getInscription,
-  getInscriptionBySender,
-  updateInscription,
-} = appdb;
-
 function getBaseResponse(inscription: any, id: number | bigint, recipient: string, sender: string) {
   return {
     inscription_id: id,
@@ -127,14 +119,14 @@ router.post(
         return res.status(400).json({ error: 'Missing required parameters' });
       }
 
-      await deletePendingInscriptionBySender(senderAddress);
+      // await deletePendingInscriptionBySender(senderAddress);
 
       const fileBuffer = fs.readFileSync(req.file.path);
       const inscription = createInscription(fileBuffer, parseFloat(feeRate), recipientAddress);
 
       const createdBlock = await getCurrentBlockHeight();
 
-      const result = await insertInscription({
+      const result = await appdb.createFullInscriptionRecord({
         tempPrivateKey: inscription.tempPrivateKey,
         address: inscription.address,
         requiredAmount: inscription.requiredAmount,
@@ -211,7 +203,7 @@ router.get(
   ) => {
     try {
       const senderAddress = req.params.sender_address;
-      const inscriptions = await getInscriptionBySender(senderAddress);
+      const inscriptions = await appdb.getInscriptionBySender(senderAddress);
 
       if (inscriptions.length === 0) {
         return res.json([]);
@@ -261,7 +253,7 @@ router.get(
         return res.status(400).json({ error: 'Invalid inscription ID' });
       }
 
-      const inscription = await getInscription(inscriptionId);
+      const inscription = await appdb.getInscription(inscriptionId);
 
       if (!inscription) {
         return res.status(400).json({ error: 'Inscription not found' });
@@ -338,8 +330,10 @@ router.post(
         return res.status(400).json({ error: 'Invalid inscription ID' });
       }
 
-      const inscription = await getInscription(inscriptionId);
+      const inscription = await appdb.getInscription(inscriptionId);
+      console.log('!!!! Q inscription', inscription);
 
+      console.log('!! commitTxId', commitTxId);
       if (!inscription) {
         return res.status(400).json({ error: 'Inscription not found' });
       }
@@ -352,14 +346,27 @@ router.post(
         inscription.recipient_address,
         inscription.temp_private_key,
       );
+      console.log('revealInscription', revealInscription);
 
       const revealTx = revealInscription.createRevealTx(commitTxId, parseInt(vout), parseInt(amount));
 
-      await updateInscription({
-        id: Number(inscriptionId),
-        commitTxId: commitTxId.trim(),
-        revealTxHex: revealTx,
-        status: 'reveal_ready',
+      await appdb.updateInscriptionStatus({ id: inscriptionId, status: 'reveal_ready' });
+
+      // await appdb.updateInscription({
+      //   id: Number(inscriptionId),
+      //   commitTxId: commitTxId.trim(),
+      //   revealTxHex: revealTx,
+      //   status: 'reveal_ready',
+      // });
+
+      const currentBlock = await getCurrentBlockHeight();
+
+      await appdb.insertTransaction({
+        inscriptionId: Number(inscriptionId),
+        type: 'commit',
+        txId: commitTxId.trim(),
+        txHex: revealTx,
+        blockNumber: currentBlock,
       });
 
       const privKeyObj = getPrivateKey(inscription.temp_private_key);

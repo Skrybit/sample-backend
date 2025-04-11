@@ -6,8 +6,6 @@ import { Request, Response } from 'express';
 
 const router = Router();
 
-const { getInscription } = appdb;
-
 async function validatePaymentRequest(address: string, amount: string, sender: string, id: string) {
   const errors = [];
   if (!address) errors.push('address is required');
@@ -25,7 +23,8 @@ async function validatePaymentRequest(address: string, amount: string, sender: s
     return { error: { error: 'Invalid inscription ID format' } };
   }
 
-  const inscription = await getInscription(inscriptionId);
+  const inscription = await appdb.getInscription(inscriptionId);
+  // console.log('OUR inscription ', inscription);
 
   if (!inscription) {
     return { error: { error: 'Inscription not found' } };
@@ -101,11 +100,16 @@ router.post(
 
       const { inscription } = validation;
 
+      // console.log('aaa inscription', inscription);
+      const currentStatus = await appdb.getCurrentStatus(inscription.id);
+      // console.log('aaa currentStatus', currentStatus);
+
       const currentBlock = await getCurrentBlockHeight();
 
       const paymentStatus = await checkPaymentToAddress(
         inscription.id,
-        inscription.status,
+        // inscription.status,
+        currentStatus,
         inscription.address,
         inscription.required_amount,
         inscription.last_checked_block,

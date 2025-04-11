@@ -1,9 +1,10 @@
 import { Router, Request, Response } from 'express';
 import { broadcastTx } from '../services/utils';
+import { getCurrentBlockHeight } from '../services/utils';
 import { appdb } from '../db';
 import { ErrorDetails, ApiErrorResponse, BroadcastRevealResponse, BroadcastRevealTxBody } from '../types';
 
-const { getInscription, updateInscriptionStatus, updateInscriptionRevealTxId } = appdb;
+// const { getInscription, updateInscriptionStatus, updateInscriptionRevealTxId } = appdb;
 
 const router = Router();
 
@@ -69,17 +70,23 @@ router.post(
         return res.status(400).json({ error: 'Invalid inscription ID format' });
       }
 
-      const inscription = await getInscription(inscriptionId);
+      const inscription = await appdb.getInscription(inscriptionId);
+
+      console.log('OUR inscription', inscription);
 
       if (!inscription) {
         return res.status(400).json({ error: 'Inscription not found' });
       }
 
-      if (!inscription.reveal_tx_hex) {
+      const revealTxHex = await appdb.getTransactionsByInscription(inscriptionId);
+      console.log('revealTxHex!!', revealTxHex);
+
+      // if (!inscription.reveal_tx_hex) {
+      if (!revealTxHex) {
         return res.status(400).json({ error: 'Inscription has no reveal_tx_hex' });
       }
 
-      const broadcastResult = await broadcastTx(inscriptionId, inscription.reveal_tx_hex);
+      const broadcastResult = await broadcastTx(inscriptionId, revealTxHex);
 
       if (!broadcastResult.success) {
         return res.status(400).json({
@@ -89,14 +96,29 @@ router.post(
         });
       }
 
-      await updateInscriptionStatus({
+      // await updateInscriptionStatus({
+      //   id: inscriptionId,
+      //   status: 'completed',
+      // });
+
+      await appdb.updateInscriptionStatus({
         id: inscriptionId,
         status: 'completed',
       });
 
-      await updateInscriptionRevealTxId({
-        id: inscriptionId,
-        revealTxId: broadcastResult.result,
+      // await updateInscriptionRevealTxId({
+      //   id: inscriptionId,
+      //   revealTxId: broadcastResult.result,
+      // });
+
+      const currentBlock = await getCurrentBlockHeight();
+
+      await appdb.insertTransaction({
+        inscriptionId,
+        type: 'reveal',
+        txId: broadcastResult.result,
+        txHex: '',
+        blockNumber: currentBlock,
       });
 
       res.json({

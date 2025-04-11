@@ -1,5 +1,5 @@
 import { btcToSats } from '../utils/helpers';
-import { updateInscriptionStatus, updateInscriptionLastCheckedBlock } from '../db/sqlite';
+import { appdb } from '../db';
 import {
   getErrorDetails,
   listAddressUTXO,
@@ -67,19 +67,19 @@ export async function checkPaymentToAddress(
   if (!walletUtxoResultW.success) {
     console.log('err checkPaymentToAddress 0a');
 
-    await updateInscriptionStatus({
+    await appdb.updateInscriptionStatus({
       id: inscriptionId,
       status: 'scanning',
     });
 
     if (currentBlock && currentBlock >= lastCheckedBlock) {
       // await updateInscriptionBlock(currentBlock, inscriptionId);
-      await updateInscriptionLastCheckedBlock({ id: inscriptionId, lastCheckedBlock: currentBlock });
+      await appdb.updateInscriptionLastCheckedBlock({ id: inscriptionId, lastCheckedBlock: currentBlock });
     }
 
     await rescanBlockchain(walletName, lastCheckedBlock);
 
-    await updateInscriptionStatus({ id: inscriptionId, status: inscriptionStatus });
+    await appdb.updateInscriptionStatus({ id: inscriptionId, status: inscriptionStatus });
 
     return { success: false, utxo: null, error: walletUtxoResultW.error };
   }
@@ -99,13 +99,13 @@ export async function checkPaymentToAddress(
 
   if (isPaid) {
     if (inscriptionStatus === 'pending') {
-      await updateInscriptionStatus({ id: inscriptionId, status: 'paid' });
+      await appdb.updateInscriptionStatus({ id: inscriptionId, status: 'paid' });
     }
     console.log('NOT err checkPaymentToAddress 5');
     return { success: true, result: true, utxo: walletUtxo };
   }
 
-  await updateInscriptionStatus({ id: inscriptionId, status: inscriptionStatus });
+  await appdb.updateInscriptionStatus({ id: inscriptionId, status: inscriptionStatus });
 
   return {
     success: false,

@@ -121,10 +121,15 @@ router.post(
 
       await appdb.deletePendingInscriptionBySender(senderAddress);
 
-      const fileBuffer = fs.readFileSync(req.file.path);
-      const inscription = createInscription(fileBuffer, parseFloat(feeRate), recipientAddress);
-
       const createdBlock = await getCurrentBlockHeight();
+
+      if (!createdBlock) {
+        return res.status(400).json({ error: 'Could not fetch current block to create an inscription' });
+      }
+
+      const fileBuffer = fs.readFileSync(req.file.path);
+
+      const inscription = createInscription(fileBuffer, parseFloat(feeRate), recipientAddress);
 
       const result = await appdb.createFullInscriptionRecord({
         tempPrivateKey: inscription.tempPrivateKey,

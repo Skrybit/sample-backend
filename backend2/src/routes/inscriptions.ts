@@ -18,6 +18,8 @@ import {
 
 import { createWalletAndAddressDescriptor } from '../services/utils';
 
+const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
+
 const router = Router();
 
 function getBaseResponse(inscription: any, id: number | bigint, recipient: string, sender: string) {
@@ -59,7 +61,7 @@ function formatInscriptionResponse(inscription: Inscription) {
  *       - in: formData
  *         name: file
  *         type: file
- *         description: The file to inscribe
+ *         description: The file to inscribe (max 5MB)
  *         required: true
  *     requestBody:
  *       content:
@@ -91,7 +93,7 @@ function formatInscriptionResponse(inscription: Inscription) {
  *                     payment_address: { type: 'string' }
  *                     error_details: { $ref: '#/components/schemas/ErrorDetails' }
  *       400:
- *         description: Invalid input
+ *         description: Invalid input or file too large
  *         content:
  *           application/json:
  *             schema:
@@ -119,7 +121,12 @@ router.post(
         return res.status(400).json({ error: 'Missing required parameters' });
       }
 
-      await appdb.deletePendingInscriptionBySender(senderAddress);
+      // File size validation
+      if (req.file.size > MAX_FILE_SIZE) {
+        return res.status(400).json({
+          error: `File size exceeds 5MB limit (${req.file.size} bytes)`,
+        });
+      }
 
       const createdBlock = await getCurrentBlockHeight();
 
@@ -127,6 +134,7 @@ router.post(
         return res.status(400).json({ error: 'Could not fetch current block to create an inscription' });
       }
 
+      await appdb.deletePendingInscriptionBySender(senderAddress);
       const fileBuffer = fs.readFileSync(req.file.path);
 
       const inscription = createInscription(fileBuffer, parseFloat(feeRate), recipientAddress);
@@ -143,6 +151,14 @@ router.post(
       });
 
       const lastInsertRowid = result.id;
+
+      // Then store the file separately
+      await appdb.storeInscriptionFile({
+        inscriptionId: lastInsertRowid,
+        fileBuffer,
+        fileName: req.file.originalname,
+        mimeType: req.file.mimetype,
+      });
 
       const broadcastResult = await createWalletAndAddressDescriptor(lastInsertRowid, inscription.address);
 

@@ -1,4 +1,5 @@
 import { Pool, PoolClient, QueryResult } from 'pg';
+import * as crypto from 'crypto';
 import { Inscription } from '../types';
 
 import { PG_POOL_CONFIG } from '../config/network';
@@ -83,6 +84,22 @@ export async function initDatabase() {
 
      CREATE INDEX IF NOT EXISTS block_checks_inscription_id_idx ON block_checks (inscription_id);
      CREATE INDEX IF NOT EXISTS block_checks_inscription_id_block_number_idx ON block_checks (inscription_id, block_number);
+
+     CREATE TABLE IF NOT EXISTS inscription_files (
+      id SERIAL PRIMARY KEY,
+      inscription_id INTEGER NOT NULL REFERENCES inscriptions(id) ON DELETE CASCADE,
+      file_data BYTEA NOT NULL,
+      file_name TEXT NOT NULL,
+      mime_type TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      sha256_hash CHAR(64) NOT NULL
+     );
+
+     CREATE INDEX IF NOT EXISTS inscription_files_inscription_id_idx 
+     ON inscription_files(inscription_id);
+
+     CREATE INDEX IF NOT EXISTS inscription_files_created_at_idx 
+     ON inscription_files(created_at);
 
     `);
     console.log('PostgreSQL database initialized successfully');
@@ -466,6 +483,55 @@ export async function deletePendingInscriptionBySender(senderAddress: string, st
   const result = await query(`DELETE FROM inscriptions WHERE id = ANY($1::int[])`, [rowsId]);
 
   return result.rowCount || 0;
+}
+
+export async function storeInscriptionFile({
+  inscriptionId,
+  fileBuffer,
+  fileName,
+  mimeType,
+}: {
+  inscriptionId: number;
+  fileBuffer: Buffer;
+  fileName: string;
+  mimeType: string;
+}) {
+  const hash = crypto.createHash('sha256');
+  hash.update(fileBuffer);
+  const sha256Hash = hash.digest('hex');
+
+  return query(
+    `INSERT INTO inscription_files (
+      inscription_id,
+      file_data,
+      file_name,
+      mime_type,
+      sha256_hash
+    ) VALUES ($1, $2, $3, $4, $5)
+    RETURNING id`,
+    [inscriptionId, fileBuffer, fileName, mimeType, sha256Hash],
+  );
+}
+
+export async function getInscriptionFile(inscriptionId: number) {
+  const result = await query(
+    `SELECT file_data, file_name, mime_type, sha256_hash
+     FROM inscription_files
+     WHERE inscription_id = $1
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [inscriptionId],
+  );
+
+  if (!result.rows[0]) return null;
+
+  const fileBuffer: Buffer = result.rows[0].file_data;
+  return {
+    data: fileBuffer,
+    fileName: result.rows[0].file_name,
+    mimeType: result.rows[0].mime_type,
+    sha256: result.rows[0].sha256_hash,
+  };
 }
 
 process.on('SIGINT', async () => {

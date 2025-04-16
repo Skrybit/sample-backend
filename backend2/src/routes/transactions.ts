@@ -56,9 +56,9 @@ router.post(
     >,
   ) => {
     try {
-      const { inscription_id: id } = req.body as BroadcastRevealTxBody;
+      const { inscription_id: id, sender_address } = req.body as BroadcastRevealTxBody;
 
-      if (!id) {
+      if (!id || !sender_address) {
         return res.status(400).json({ error: 'Missing required fields' });
       }
 
@@ -76,6 +76,10 @@ router.post(
 
       if (!inscription.reveal_tx_hex) {
         return res.status(400).json({ error: 'Inscription has no reveal_tx_hex' });
+      }
+
+      if (inscription.sender_address !== sender_address.trim()) {
+        return res.status(400).json({ error: 'Inscription sender_address mismatch' });
       }
 
       const broadcastResult = await broadcastTx(inscriptionId, inscription.reveal_tx_hex);

@@ -126,7 +126,6 @@ export const swaggerOptions = {
             commit_tx_id: { type: 'string' },
             vout: { type: 'string' },
             amount: { type: 'string' },
-            file_path: { type: 'string' },
           },
         },
         CreateRevealResponse: {
@@ -154,6 +153,7 @@ export const swaggerOptions = {
           required: ['inscription_id'],
           properties: {
             inscription_id: { type: 'string' },
+            sender_address: { type: 'string' },
           },
         },
         BroadcastRevealResponse: {

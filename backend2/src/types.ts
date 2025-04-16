@@ -93,7 +93,7 @@ export interface CreateRevealPayload {
   commit_tx_id: string;
   vout: string;
   amount: string;
-  file_path: string;
+  // file_path: string;
 }
 
 // step 5
@@ -114,6 +114,7 @@ export interface CreateRevealResponse {
 // step 6
 export interface BroadcastRevealTxBody {
   inscription_id: string;
+  sender_address: string;
 }
 
 // step 6

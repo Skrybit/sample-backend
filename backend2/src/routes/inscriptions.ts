@@ -117,14 +117,22 @@ router.post(
         sender_address: senderAddress,
       } = req.body as CreateCommitPayload;
 
-      if (!req.file || !recipientAddress || !feeRate) {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+      }
+
+      if (!recipientAddress || !feeRate) {
         return res.status(400).json({ error: 'Missing required parameters' });
       }
 
       // File size validation
       if (req.file.size > MAX_FILE_SIZE) {
-        return res.status(400).json({
-          error: `File size exceeds 5MB limit (${req.file.size} bytes)`,
+        return res.status(413).json({
+          error: 'File size exceeds maximum allowed',
+          details: {
+            max_size: MAX_FILE_SIZE,
+            actual_size: req.file.size,
+          },
         });
       }
 
@@ -135,6 +143,7 @@ router.post(
       }
 
       await appdb.deletePendingInscriptionBySender(senderAddress);
+
       const fileBuffer = fs.readFileSync(req.file.path);
 
       const inscription = createInscription(fileBuffer, parseFloat(feeRate), recipientAddress);
@@ -293,17 +302,9 @@ router.get(
  *   post:
  *     tags: [Inscriptions]
  *     summary: Create reveal transaction for an inscription
- *     consumes:
- *       - multipart/form-data
- *     parameters:
- *       - in: formData
- *         name: file
- *         type: file
- *         description: The original inscription file
- *         required: true
  *     requestBody:
  *       content:
- *         multipart/form-data:
+ *         application/json:
  *           schema:
  *             type: object
  *             properties:
@@ -334,75 +335,84 @@ router.get(
  *             schema:
  *               $ref: '#/components/schemas/ApiErrorResponse'
  */
-router.post(
-  '/create-reveal',
-  upload.single('file'),
-  async (req: Request, res: Response<CreateRevealResponse | ApiErrorResponse>) => {
-    try {
-      const { inscription_id: insId, commit_tx_id: commitTxId, vout, amount } = req.body as CreateRevealPayload;
+router.post('/create-reveal', async (req: Request, res: Response<CreateRevealResponse | ApiErrorResponse>) => {
+  try {
+    const { inscription_id: insId, commit_tx_id: commitTxId, vout, amount } = req.body as CreateRevealPayload;
 
-      if (!req.file || !insId || !commitTxId || vout === undefined || !amount) {
-        return res.status(400).json({ error: 'Missing required parameters' });
-      }
-
-      const inscriptionId = parseInt(insId);
-
-      if (isNaN(inscriptionId)) {
-        return res.status(400).json({ error: 'Invalid inscription ID' });
-      }
-
-      const inscription = await appdb.getInscription(inscriptionId);
-
-      if (!inscription) {
-        return res.status(400).json({ error: 'Inscription not found' });
-      }
-
-      const fileBuffer = fs.readFileSync(req.file.path);
-
-      const revealInscription = createInscription(
-        fileBuffer,
-        inscription.fee_rate,
-        inscription.recipient_address,
-        inscription.temp_private_key,
-      );
-
-      const revealTx = revealInscription.createRevealTx(commitTxId, parseInt(vout), parseInt(amount));
-
-      await appdb.updateInscriptionStatus({ id: inscriptionId, status: 'reveal_ready' });
-
-      const currentBlock = await getCurrentBlockHeight();
-
-      await appdb.insertCommitTransaction({
-        inscriptionId: Number(inscriptionId),
-        txId: commitTxId.trim(),
-        revealTxHex: revealTx,
-        blockNumber: currentBlock,
-      });
-
-      const privKeyObj = getPrivateKey(inscription.temp_private_key);
-      const pubkey = getPublicKeyFromWif(privKeyObj.wif);
-
-      res.json({
-        inscription_id: inscription.id + '',
-        commit_tx_id: commitTxId.trim(),
-        debug: {
-          payment_address: revealInscription.address,
-          payment_pubkey: pubkey.hex,
-          required_amount_in_sats: inscription.required_amount + '',
-          given_utxo_amount_in_sats: amount,
-          sender_address: inscription.sender_address,
-          recipient_address: inscription.recipient_address,
-          fees: `${BigInt(parseInt(amount))}`,
-        },
-      });
-    } catch (error) {
-      res.status(400).json({ error: error instanceof Error ? error.message : 'Error creating reveal transaction' });
-    } finally {
-      if (req.file?.path) {
-        fs.unlinkSync(req.file.path);
-      }
+    if (!insId || !commitTxId || vout === undefined || !amount) {
+      return res.status(400).json({ error: 'Missing required parameters' });
     }
-  },
-);
+
+    const inscriptionId = parseInt(insId);
+
+    if (isNaN(inscriptionId)) {
+      return res.status(400).json({ error: 'Invalid inscription ID' });
+    }
+
+    const currentBlock = await getCurrentBlockHeight();
+
+    if (!currentBlock) {
+      return res.status(400).json({ error: 'Could not fetch current block to create an inscription reveal' });
+    }
+
+    const inscription = await appdb.getInscription(inscriptionId);
+
+    const fileData = await appdb.getInscriptionFile(inscriptionId);
+
+    if (!inscription || !fileData) {
+      return res.status(400).json({ error: 'Inscription or associated file not found' });
+    }
+    // Create reveal using stored file data
+    const revealInscription = createInscription(
+      fileData.data,
+      inscription.fee_rate,
+      inscription.recipient_address,
+      inscription.temp_private_key,
+    );
+
+    // const fileBuffer = fs.readFileSync(req.file.path);
+
+    // const revealInscription = createInscription(
+    //   fileBuffer,
+    //   inscription.fee_rate,
+    //   inscription.recipient_address,
+    //   inscription.temp_private_key,
+    // );
+
+    const revealTx = revealInscription.createRevealTx(commitTxId, parseInt(vout), parseInt(amount));
+
+    await appdb.updateInscriptionStatus({ id: inscriptionId, status: 'reveal_ready' });
+
+    await appdb.insertCommitTransaction({
+      inscriptionId: Number(inscriptionId),
+      txId: commitTxId.trim(),
+      revealTxHex: revealTx,
+      blockNumber: currentBlock,
+    });
+
+    const privKeyObj = getPrivateKey(inscription.temp_private_key);
+    const pubkey = getPublicKeyFromWif(privKeyObj.wif);
+
+    res.json({
+      inscription_id: inscription.id + '',
+      commit_tx_id: commitTxId.trim(),
+      debug: {
+        payment_address: revealInscription.address,
+        payment_pubkey: pubkey.hex,
+        required_amount_in_sats: inscription.required_amount + '',
+        given_utxo_amount_in_sats: amount,
+        sender_address: inscription.sender_address,
+        recipient_address: inscription.recipient_address,
+        fees: `${BigInt(parseInt(amount))}`,
+      },
+    });
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : 'Error creating reveal transaction' });
+  } finally {
+    if (req.file?.path) {
+      fs.unlinkSync(req.file.path);
+    }
+  }
+});
 
 export default router;

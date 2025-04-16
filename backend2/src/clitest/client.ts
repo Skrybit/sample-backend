@@ -118,19 +118,21 @@ export async function createReveal({
   commit_tx_id,
   vout,
   amount,
-  file_path,
 }: CreateRevealPayload): Promise<ApiRes<CreateRevealResponse> | ApiErrRes> {
   const url = `${BASE_URL}/inscriptions/create-reveal`;
   try {
-    const form = new FormData();
-    form.append('file', fs.createReadStream(file_path));
-    form.append('inscription_id', inscription_id);
-    form.append('commit_tx_id', commit_tx_id);
-    form.append('vout', vout);
-    form.append('amount', amount);
+    const payload = {
+      inscription_id,
+      commit_tx_id,
+      vout,
+      amount,
+    };
 
-    const response = await axios.post<CreateRevealResponse>(url, form, {
-      headers: form.getHeaders(),
+    const response = await axios.post<CreateRevealResponse>(url, payload, {
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
     });
 
     return { success: true, result: response.data };
@@ -139,7 +141,10 @@ export async function createReveal({
   }
 }
 
-export async function broadcastRevealTx(id: string): Promise<ApiRes<BroadcastRevealResponse> | ApiErrRes> {
+export async function broadcastRevealTx(
+  id: string,
+  senderAddress: string,
+): Promise<ApiRes<BroadcastRevealResponse> | ApiErrRes> {
   const url = `${BASE_URL}/transactions/broadcast-reveal`;
 
   try {
@@ -147,6 +152,7 @@ export async function broadcastRevealTx(id: string): Promise<ApiRes<BroadcastRev
       url,
       {
         inscription_id: id,
+        sender_address: senderAddress,
       },
       {
         headers: {

@@ -11,11 +11,12 @@ import { RECIPIENT_ADDRESS, SENDER_ADDRESS, FEE_RATE } from '../config/network';
 import { btcToSats } from '../utils/helpers';
 
 const INSCRIBE_FILE = 'test_sm.txt'; // must be in the same directory
+// const INSCRIBE_FILE = 'test_b.bin'; // must be in the same directory
 
 // inscription data
-const inscriptionId = 12;
+const inscriptionId = 17;
 const inscriptionRequiredAmount = '1093';
-const inscriptionPaymentAddress = 'tb1psraxhv578astz73dfu357t94fxlral3wd2y8tczglnv3eh22xlmqulsd0r';
+const inscriptionPaymentAddress = 'tb1p989sacw2vqyzyl5saz73hu6yltgk6d3jw0zpawx8f3f3lup488gszuz2qz';
 
 // utxo data
 const inscriptionUtxoVout = 0;
@@ -72,6 +73,7 @@ const checkInscriptionPaymentStep = async () => {
 
   const isInscriptiionPaidResponse = await isInscriptionPaid(address, id, senderAddress, requiredAmount);
   console.log('isInscriptiionPaidResponse', isInscriptiionPaidResponse);
+
   if (isInscriptiionPaidResponse.success && isInscriptiionPaidResponse.result.payment_utxo) {
     const vout = isInscriptiionPaidResponse.result.payment_utxo.vout;
     const amount = isInscriptiionPaidResponse.result.payment_utxo.amount;
@@ -84,12 +86,12 @@ const checkInscriptionPaymentStep = async () => {
       commit_tx_id: paymentTxid,
       vout: `${vout}`,
       amount: `${utxoAmountInSats!}`,
-      file_path: path.join(__dirname, INSCRIBE_FILE),
     });
     console.log('Full server response of the reveal after payment check: ', revealResult);
 
     if (revealResult.success) {
-      const revealTxResult = await broadcastRevealTx(id);
+      const revealTxResult = await broadcastRevealTx(id, senderAddress);
+
       console.log('\nReveal Transaction Broadcasted result (from check payment):', revealTxResult);
     }
   }
@@ -103,6 +105,8 @@ const getInscriptionRevealDetailsStep = async () => {
   const amount = inscriptionUtxoAmount;
   const paymentTxid = inscriptionUtxoTxId;
 
+  const senderAddress = SENDER_ADDRESS;
+
   const utxoAmountInSats = btcToSats(amount);
 
   const revealResult = await createReveal({
@@ -110,13 +114,12 @@ const getInscriptionRevealDetailsStep = async () => {
     commit_tx_id: paymentTxid,
     vout: `${vout}`,
     amount: `${utxoAmountInSats!}`,
-    file_path: path.join(__dirname, INSCRIBE_FILE),
   });
 
   console.log('Full server response: ', revealResult);
 
   if (revealResult.success) {
-    const revealTxResult = await broadcastRevealTx(id);
+    const revealTxResult = await broadcastRevealTx(id, senderAddress);
     console.log('\nReveal Transaction Broadcasted result:', revealTxResult);
   }
 };
@@ -125,7 +128,9 @@ const broadcastRevealTxHexStep = async () => {
   // 4. Broadcast reveal transaction
   const id = inscriptionId + '';
 
-  const revealTxResult = await broadcastRevealTx(id);
+  const senderAddress = SENDER_ADDRESS;
+
+  const revealTxResult = await broadcastRevealTx(id, senderAddress);
   console.log('\nReveal Transaction Broadcasted result:', revealTxResult);
   if (!revealTxResult.success) {
     console.log('\nReveal Transaction Broadcasted result:', revealTxResult.error);
@@ -141,13 +146,13 @@ async function main() {
     // await checkInscriptionStep();
     //
     // 1. Create commit inscription
-    // await createCommitStep();
+    await createCommitStep();
     //
     // 2. Check inscription payment
     // (would trigger status update on remote end if paid)
     // (also will auto reveal and broadcast)
     // and return UTXO if it is there
-    await checkInscriptionPaymentStep();
+    // await checkInscriptionPaymentStep();
     //
     // (is done in the previous step)
     // 3. After funding and confirmation, create reveal and broadcast the revealTx

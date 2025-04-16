@@ -1,2 +1,2 @@
 // export * as appdb from `./sqlite`;
-export * as appdb from './pg';
+export * as appdb from './pgn';

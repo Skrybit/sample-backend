@@ -1,9 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { broadcastTx } from '../services/utils';
+import { getCurrentBlockHeight } from '../services/utils';
 import { appdb } from '../db';
 import { ErrorDetails, ApiErrorResponse, BroadcastRevealResponse, BroadcastRevealTxBody } from '../types';
-
-const { getInscription, updateInscriptionStatus, updateInscriptionRevealTxId } = appdb;
 
 const router = Router();
 
@@ -69,7 +68,7 @@ router.post(
         return res.status(400).json({ error: 'Invalid inscription ID format' });
       }
 
-      const inscription = await getInscription(inscriptionId);
+      const inscription = await appdb.getInscription(inscriptionId);
 
       if (!inscription) {
         return res.status(400).json({ error: 'Inscription not found' });
@@ -89,14 +88,17 @@ router.post(
         });
       }
 
-      await updateInscriptionStatus({
-        id: inscriptionId,
-        status: 'completed',
+      const currentBlock = await getCurrentBlockHeight();
+
+      await appdb.insertRevealTransaction({
+        inscriptionId,
+        txId: broadcastResult.result,
+        blockNumber: currentBlock,
       });
 
-      await updateInscriptionRevealTxId({
+      await appdb.updateInscriptionStatus({
         id: inscriptionId,
-        revealTxId: broadcastResult.result,
+        status: 'completed',
       });
 
       res.json({

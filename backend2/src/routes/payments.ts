@@ -1,12 +1,10 @@
 import { Router } from 'express';
 import { appdb } from '../db';
-import { getCurrentBlockHeight, checkPaymentToAddress } from '../services/utils';
+import { checkPaymentToAddress } from '../services/utils';
 import { ErrorDetails, ApiErrorResponse, PaymentStatusBody, InscriptionPayment } from '../types';
 import { Request, Response } from 'express';
 
 const router = Router();
-
-const { getInscription } = appdb;
 
 async function validatePaymentRequest(address: string, amount: string, sender: string, id: string) {
   const errors = [];
@@ -25,7 +23,7 @@ async function validatePaymentRequest(address: string, amount: string, sender: s
     return { error: { error: 'Invalid inscription ID format' } };
   }
 
-  const inscription = await getInscription(inscriptionId);
+  const inscription = await appdb.getInscription(inscriptionId);
 
   if (!inscription) {
     return { error: { error: 'Inscription not found' } };
@@ -101,15 +99,12 @@ router.post(
 
       const { inscription } = validation;
 
-      const currentBlock = await getCurrentBlockHeight();
-
       const paymentStatus = await checkPaymentToAddress(
         inscription.id,
         inscription.status,
         inscription.address,
         inscription.required_amount,
         inscription.last_checked_block,
-        currentBlock,
       );
 
       if (!paymentStatus.success) {

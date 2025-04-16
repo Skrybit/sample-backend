@@ -13,9 +13,9 @@ import { btcToSats } from '../utils/helpers';
 const INSCRIBE_FILE = 'test_sm.txt'; // must be in the same directory
 
 // inscription data
-const inscriptionId = 5;
+const inscriptionId = 12;
 const inscriptionRequiredAmount = '1093';
-const inscriptionPaymentAddress = 'tb1pjfky9q40k74q0a22fvpt7ygvurskwzgzp5kdc0y8fv4ruzclxsnswr06yj';
+const inscriptionPaymentAddress = 'tb1psraxhv578astz73dfu357t94fxlral3wd2y8tczglnv3eh22xlmqulsd0r';
 
 // utxo data
 const inscriptionUtxoVout = 0;
@@ -135,7 +135,7 @@ const broadcastRevealTxHexStep = async () => {
 async function main() {
   try {
     // (optional) Get a list of current sender inscriptions
-    await getSenderInscriptionsStep();
+    // await getSenderInscriptionsStep();
     //
     // (optional) Check inscription status and details
     // await checkInscriptionStep();
@@ -147,7 +147,7 @@ async function main() {
     // (would trigger status update on remote end if paid)
     // (also will auto reveal and broadcast)
     // and return UTXO if it is there
-    // await checkInscriptionPaymentStep();
+    await checkInscriptionPaymentStep();
     //
     // (is done in the previous step)
     // 3. After funding and confirmation, create reveal and broadcast the revealTx

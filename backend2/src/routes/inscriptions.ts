@@ -20,14 +20,6 @@ import { createWalletAndAddressDescriptor } from '../services/utils';
 
 const router = Router();
 
-const {
-  deletePendingInscriptionBySender,
-  insertInscription,
-  getInscription,
-  getInscriptionBySender,
-  updateInscription,
-} = appdb;
-
 function getBaseResponse(inscription: any, id: number | bigint, recipient: string, sender: string) {
   return {
     inscription_id: id,
@@ -127,14 +119,19 @@ router.post(
         return res.status(400).json({ error: 'Missing required parameters' });
       }
 
-      await deletePendingInscriptionBySender(senderAddress);
-
-      const fileBuffer = fs.readFileSync(req.file.path);
-      const inscription = createInscription(fileBuffer, parseFloat(feeRate), recipientAddress);
+      await appdb.deletePendingInscriptionBySender(senderAddress);
 
       const createdBlock = await getCurrentBlockHeight();
 
-      const result = await insertInscription({
+      if (!createdBlock) {
+        return res.status(400).json({ error: 'Could not fetch current block to create an inscription' });
+      }
+
+      const fileBuffer = fs.readFileSync(req.file.path);
+
+      const inscription = createInscription(fileBuffer, parseFloat(feeRate), recipientAddress);
+
+      const result = await appdb.createFullInscriptionRecord({
         tempPrivateKey: inscription.tempPrivateKey,
         address: inscription.address,
         requiredAmount: inscription.requiredAmount,
@@ -211,7 +208,7 @@ router.get(
   ) => {
     try {
       const senderAddress = req.params.sender_address;
-      const inscriptions = await getInscriptionBySender(senderAddress);
+      const inscriptions = await appdb.getInscriptionBySender(senderAddress);
 
       if (inscriptions.length === 0) {
         return res.json([]);
@@ -261,7 +258,7 @@ router.get(
         return res.status(400).json({ error: 'Invalid inscription ID' });
       }
 
-      const inscription = await getInscription(inscriptionId);
+      const inscription = await appdb.getInscription(inscriptionId);
 
       if (!inscription) {
         return res.status(400).json({ error: 'Inscription not found' });
@@ -338,7 +335,7 @@ router.post(
         return res.status(400).json({ error: 'Invalid inscription ID' });
       }
 
-      const inscription = await getInscription(inscriptionId);
+      const inscription = await appdb.getInscription(inscriptionId);
 
       if (!inscription) {
         return res.status(400).json({ error: 'Inscription not found' });
@@ -355,11 +352,15 @@ router.post(
 
       const revealTx = revealInscription.createRevealTx(commitTxId, parseInt(vout), parseInt(amount));
 
-      await updateInscription({
-        id: Number(inscriptionId),
-        commitTxId: commitTxId.trim(),
+      await appdb.updateInscriptionStatus({ id: inscriptionId, status: 'reveal_ready' });
+
+      const currentBlock = await getCurrentBlockHeight();
+
+      await appdb.insertCommitTransaction({
+        inscriptionId: Number(inscriptionId),
+        txId: commitTxId.trim(),
         revealTxHex: revealTx,
-        status: 'reveal_ready',
+        blockNumber: currentBlock,
       });
 
       const privKeyObj = getPrivateKey(inscription.temp_private_key);

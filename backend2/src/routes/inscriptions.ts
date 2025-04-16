@@ -349,13 +349,6 @@ router.post(
 
       await appdb.updateInscriptionStatus({ id: inscriptionId, status: 'reveal_ready' });
 
-      // await appdb.updateInscription({
-      //   id: Number(inscriptionId),
-      //   commitTxId: commitTxId.trim(),
-      //   revealTxHex: revealTx,
-      //   status: 'reveal_ready',
-      // });
-
       const currentBlock = await getCurrentBlockHeight();
 
       await appdb.insertCommitTransaction({

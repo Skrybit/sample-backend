@@ -88,11 +88,6 @@ router.post(
         });
       }
 
-      // await updateInscriptionRevealTxId({
-      //   id: inscriptionId,
-      //   revealTxId: broadcastResult.result,
-      // });
-
       const currentBlock = await getCurrentBlockHeight();
 
       await appdb.insertRevealTransaction({
@@ -100,11 +95,6 @@ router.post(
         txId: broadcastResult.result,
         blockNumber: currentBlock,
       });
-
-      // await updateInscriptionStatus({
-      //   id: inscriptionId,
-      //   status: 'completed',
-      // });
 
       await appdb.updateInscriptionStatus({
         id: inscriptionId,

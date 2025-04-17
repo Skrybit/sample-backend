@@ -215,6 +215,25 @@ export async function getPendingInscriptionBySender(senderAddress: string) {
   return result.rows as Inscription[];
 }
 
+export async function getPendingInscriptions() {
+  const result = await query(
+    `SELECT 
+      i.*,
+      su.new_status as status
+    FROM inscriptions i
+    LEFT JOIN LATERAL (
+      SELECT new_status
+      FROM status_updates
+      WHERE inscription_id = i.id
+      ORDER BY created_at DESC
+      LIMIT 1
+    ) su ON true
+    WHERE su.new_status = 'pending'`,
+  );
+
+  return result.rows as Inscription[];
+}
+
 // ======================
 // Transaction Operations
 // ======================

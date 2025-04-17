@@ -87,6 +87,7 @@ const checkInscriptionPaymentStep = async () => {
       vout: `${vout}`,
       amount: `${utxoAmountInSats!}`,
     });
+
     console.log('Full server response of the reveal after payment check: ', revealResult);
 
     if (revealResult.success) {

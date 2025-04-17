@@ -362,6 +362,7 @@ router.post('/create-reveal', async (req: Request, res: Response<CreateRevealRes
     if (!inscription || !fileData) {
       return res.status(400).json({ error: 'Inscription or associated file not found' });
     }
+
     // Create reveal using stored file data
     const revealInscription = createInscription(
       fileData.data,
@@ -369,15 +370,6 @@ router.post('/create-reveal', async (req: Request, res: Response<CreateRevealRes
       inscription.recipient_address,
       inscription.temp_private_key,
     );
-
-    // const fileBuffer = fs.readFileSync(req.file.path);
-
-    // const revealInscription = createInscription(
-    //   fileBuffer,
-    //   inscription.fee_rate,
-    //   inscription.recipient_address,
-    //   inscription.temp_private_key,
-    // );
 
     const revealTx = revealInscription.createRevealTx(commitTxId, parseInt(vout), parseInt(amount));
 
@@ -408,11 +400,12 @@ router.post('/create-reveal', async (req: Request, res: Response<CreateRevealRes
     });
   } catch (error) {
     res.status(400).json({ error: error instanceof Error ? error.message : 'Error creating reveal transaction' });
-  } finally {
-    if (req.file?.path) {
-      fs.unlinkSync(req.file.path);
-    }
   }
+  // finally {
+  //   if (req.file?.path) {
+  //     fs.unlinkSync(req.file.path);
+  //   }
+  // }
 });
 
 export default router;

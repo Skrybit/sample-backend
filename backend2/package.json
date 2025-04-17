@@ -3,7 +3,9 @@
     "dev": "ts-node ./src/server.ts",
     "build": "tsc",
     "start": "node ./dist/server.js",
-    "clean": "rm -rf dist/"
+    "clean": "rm -rf dist/",
+    "cron:check-pending-dev": "ts-node ./src/services/cronA.ts",
+    "cron:check-pending": "node ./dist/services/cronA.js"
   },
   "dependencies": {
     "@noble/secp256k1": "^2.2.3",
